@@ -42,9 +42,34 @@ export const addDonation = (donationData) => {
     expectedDelivery: 'TBD',
     assignedVolunteer: null,
     volunteerId: null,
+    volunteerPhone: null,
+    volunteerVehicle: null,
     requirement: 'N/A',
     createdDate: new Date().toISOString(),
-    volunteerResponse: null
+    volunteerResponse: null,
+    ...(donationData.bookDetails && { bookDetails: donationData.bookDetails }),
+    tracking: {
+      currentLocation: donationData.pickupLocation,
+      coordinates: donationData.coordinates || null,
+      lastUpdate: new Date().toISOString(),
+      locationHistory: [{
+        location: donationData.pickupLocation,
+        timestamp: new Date().toISOString(),
+        status: 'Donation Created',
+        coordinates: donationData.coordinates || null,
+        note: 'Donation request submitted successfully'
+      }],
+      estimatedDelivery: null,
+      distanceCovered: '0 km',
+      destinationAddress: null,
+      statusProgress: {
+        created: true,
+        accepted: false,
+        pickedUp: false,
+        inTransit: false,
+        delivered: false
+      }
+    }
   };
   
   donations.push(newDonation);
@@ -70,6 +95,24 @@ export const updateDonationStatus = (donationId, newStatus, volunteerData = null
       donation.volunteerId = volunteerData.volunteerId;
       donation.volunteerResponse = volunteerData.response;
     }
+    
+    // Update tracking with status change
+    if (donation.tracking) {
+      donation.tracking.lastUpdate = new Date().toISOString();
+      donation.tracking.locationHistory.push({
+        location: donation.tracking.currentLocation,
+        timestamp: new Date().toISOString(),
+        status: newStatus,
+        coordinates: donation.tracking.coordinates,
+        note: volunteerData ? `${volunteerData.name} ${volunteerData.response} the donation` : `Status changed to ${newStatus}`
+      });
+      
+      // Update progress indicators
+      if (newStatus === 'Accepted by Volunteer') {
+        donation.tracking.statusProgress.accepted = true;
+      }
+    }
+    
     localStorage.setItem(DONATIONS_KEY, JSON.stringify(donations));
     return donation;
   }
@@ -130,6 +173,118 @@ export const addVerifiedDonation = (verifiedData) => {
 export const getVerifiedDonations = () => {
   const verified = localStorage.getItem(VERIFIED_DONATIONS_KEY);
   return verified ? JSON.parse(verified) : [];
+};
+// Update donation tracking location
+export const updateDonationLocation = (donationId, locationData) => {
+  const donations = getAllDonations();
+  const donation = donations.find(d => d.id === donationId);
+  
+  if (donation && donation.tracking) {
+    donation.tracking.currentLocation = locationData.address;
+    donation.tracking.coordinates = locationData.coordinates;
+    donation.tracking.lastUpdate = new Date().toISOString();
+    donation.tracking.distanceCovered = locationData.distanceCovered || donation.tracking.distanceCovered;
+    donation.tracking.estimatedDelivery = locationData.estimatedDelivery || donation.tracking.estimatedDelivery;
+    
+    donation.tracking.locationHistory.push({
+      location: locationData.address,
+      timestamp: new Date().toISOString(),
+      status: locationData.status || 'Moving',
+      coordinates: locationData.coordinates,
+      note: locationData.note || ''
+    });
+    
+    localStorage.setItem(DONATIONS_KEY, JSON.stringify(donations));
+    return donation;
+  }
+  return null;
+};
+
+// Volunteer picks up donation
+export const pickupDonation = (donationId, volunteerData, pickupData) => {
+  const donations = getAllDonations();
+  const donation = donations.find(d => d.id === donationId);
+  
+  if (donation) {
+    donation.status = 'Picked Up';
+    donation.assignedVolunteer = volunteerData.name;
+    donation.volunteerId = volunteerData.volunteerId;
+    donation.volunteerPhone = volunteerData.phone;
+    donation.volunteerVehicle = volunteerData.vehicle;
+    donation.volunteerResponse = 'accepted';
+    
+    if (donation.tracking) {
+      donation.tracking.currentLocation = pickupData.currentLocation;
+      donation.tracking.coordinates = pickupData.coordinates;
+      donation.tracking.lastUpdate = new Date().toISOString();
+      donation.tracking.destinationAddress = pickupData.destinationAddress;
+      donation.tracking.estimatedDelivery = pickupData.estimatedDelivery;
+      
+      // Update status progress
+      donation.tracking.statusProgress.pickedUp = true;
+      
+      donation.tracking.locationHistory.push({
+        location: pickupData.currentLocation,
+        timestamp: new Date().toISOString(),
+        status: 'Picked Up by Volunteer',
+        coordinates: pickupData.coordinates,
+        note: `Picked up by ${volunteerData.name}`
+      });
+    }
+    
+    localStorage.setItem(DONATIONS_KEY, JSON.stringify(donations));
+    return donation;
+  }
+  return null;
+};
+
+// Mark donation as in transit
+export const markInTransit = (donationId, locationData) => {
+  const donations = getAllDonations();
+  const donation = donations.find(d => d.id === donationId);
+  
+  if (donation) {
+    donation.status = 'In Transit';
+    
+    // Update status progress
+    if (donation.tracking) {
+      donation.tracking.statusProgress.inTransit = true;
+    }
+    
+    updateDonationLocation(donationId, {
+      ...locationData,
+      status: 'In Transit'
+    });
+    return donation;
+  }
+  return null;
+};
+
+// Mark donation as delivered
+export const markDelivered = (donationId, deliveryData = {}) => {
+  const donations = getAllDonations();
+  const donation = donations.find(d => d.id === donationId);
+  
+  if (donation) {
+    donation.status = 'Delivered';
+    
+    if (donation.tracking) {
+      donation.tracking.statusProgress.delivered = true;
+      donation.tracking.lastUpdate = new Date().toISOString();
+      
+      donation.tracking.locationHistory.push({
+        location: deliveryData.location || donation.tracking.destinationAddress || 'Destination',
+        timestamp: new Date().toISOString(),
+        status: 'Delivered',
+        coordinates: deliveryData.coordinates || donation.tracking.coordinates,
+        note: deliveryData.note || 'Donation successfully delivered'
+      });
+    }
+    
+    localStorage.setItem(DONATIONS_KEY, JSON.stringify(donations));
+    return donation;
+  }
+  return null;
 };
 
 // Clear all donations (for testing)

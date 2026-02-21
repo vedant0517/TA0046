@@ -18,6 +18,11 @@ function Navbar({ setCurrentPage }) {
           <li className="navbar-item">
             <a href="#organization" className="navbar-link" onClick={(e) => { e.preventDefault(); setCurrentPage('organization'); }}>Organization</a>
           </li>
+          <li className="navbar-item">
+            <a href="#ai-assistant" className="navbar-link ai-link" onClick={(e) => { e.preventDefault(); setCurrentPage('ai-assistant'); }}>
+              🤖 AI Assistant
+            </a>
+          </li>
         </ul>
       </div>
     </nav>

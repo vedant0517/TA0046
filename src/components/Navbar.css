@@ -2,6 +2,7 @@
   background: linear-gradient(135deg, #1a237e 0%, #0d47a1 100%);
   padding: 1rem 2rem;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  position: -webkit-sticky;
   position: sticky;
   top: 0;
   z-index: 100;
@@ -45,6 +46,29 @@
 
 .navbar-link:hover {
   background-color: rgba(255, 255, 255, 0.2);
+}
+
+.navbar-link.ai-link {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 8px;
+  padding: 0.6rem 1.2rem;
+  font-weight: 600;
+  animation: glow 2s ease-in-out infinite;
+}
+
+.navbar-link.ai-link:hover {
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(102, 126, 234, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(102, 126, 234, 0.8);
+  }
 }
 
 @media (max-width: 768px) {

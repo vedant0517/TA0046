@@ -6,6 +6,7 @@ import Home from './pages/Home';
 import DonorDashboard from './pages/DonorDashboard';
 import VolunteerDashboard from './pages/VolunteerDashboard';
 import OrganizationDashboard from './pages/OrganizationDashboard';
+import AIAssistant from './pages/AIAssistant';
 
 function App() {
   const [currentPage, setCurrentPage] = useState('home');
@@ -17,6 +18,7 @@ function App() {
       {currentPage === 'donor' && <DonorDashboard />}
       {currentPage === 'volunteer' && <VolunteerDashboard />}
       {currentPage === 'organization' && <OrganizationDashboard />}
+      {currentPage === 'ai-assistant' && <AIAssistant setCurrentPage={setCurrentPage} />}
       <Footer />
     </div>
   );
