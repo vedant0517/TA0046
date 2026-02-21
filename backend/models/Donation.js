@@ -1,35 +1,40 @@
-// In-memory database for donations (replace with MongoDB in production)
-let donations = [];
-let donationCounter = 0;
-
+// In-memory donation storage
 class Donation {
+  static donations = [];
+  static counter = 1;
+
   constructor(data) {
-    this.id = ++donationCounter;
-    this.donationId = `DON-${String(donationCounter).padStart(4, '0')}`;
+    this._id = Date.now().toString() + Math.random().toString(36).substr(2, 9);
+    this.donationId = `DON-${String(Donation.counter++).padStart(4, '0')}`;
     this.donorName = data.donorName || 'Anonymous Donor';
-    this.donorId = data.donorId || 'D-' + Date.now();
+    this.donorId = data.donorId;
     this.category = data.category;
-    this.item = data.itemType;
+    this.item = data.item;
     this.quantity = data.quantity;
-    this.status = 'Pending';
+    this.status = data.status || 'Pending';
     this.pickupLocation = data.pickupLocation;
-    this.pickupTime = data.pickupTime;
-    this.expectedDelivery = 'TBD';
-    this.assignedVolunteer = null;
-    this.volunteerId = null;
-    this.volunteerPhone = null;
-    this.volunteerVehicle = null;
-    this.requirement = 'N/A';
-    this.createdDate = new Date().toISOString();
-    this.volunteerResponse = null;
+    this.pickupTime = data.pickupTime || '';
+    this.expectedDelivery = data.expectedDelivery || 'TBD';
+    this.assignedVolunteer = data.assignedVolunteer || '';
+    this.volunteerId = data.volunteerId || '';
+    this.volunteerPhone = data.volunteerPhone || '';
+    this.volunteerVehicle = data.volunteerVehicle || '';
+    this.requirement = data.requirement || 'N/A';
+    this.volunteerResponse = data.volunteerResponse || '';
     this.bookDetails = data.bookDetails || null;
-    this.tracking = {
+    this.addressDetails = data.addressDetails || null;
+    this.coordinates = data.coordinates || null;
+    this.createdDate = new Date();
+    this.updatedAt = new Date();
+    
+    // Initialize tracking
+    this.tracking = data.tracking || {
       currentLocation: data.pickupLocation,
       coordinates: data.coordinates || null,
-      lastUpdate: new Date().toISOString(),
+      lastUpdate: new Date(),
       locationHistory: [{
         location: data.pickupLocation,
-        timestamp: new Date().toISOString(),
+        timestamp: new Date(),
         status: 'Donation Created',
         coordinates: data.coordinates || null,
         note: 'Donation request submitted successfully'
@@ -47,101 +52,59 @@ class Donation {
     };
   }
 
-  static getAll() {
-    return donations;
-  }
-
-  static findById(id) {
-    return donations.find(d => d.id === parseInt(id));
-  }
-
-  static findByDonationId(donationId) {
-    return donations.find(d => d.donationId === donationId);
-  }
-
-  static getPending() {
-    return donations.filter(d => d.status === 'Pending' || d.status === 'Accepted by Volunteer');
-  }
-
-  static create(data) {
+  // Static methods to mimic Mongoose API
+  static async create(data) {
     const donation = new Donation(data);
-    donations.push(donation);
+    this.donations.push(donation);
     return donation;
   }
 
-  static update(id, updates) {
-    const donation = Donation.findById(id);
-    if (donation) {
-      Object.assign(donation, updates);
-      if (updates.tracking) {
-        donation.tracking.lastUpdate = new Date().toISOString();
+  static async find(query = {}) {
+    let results = [...this.donations];
+    
+    if (query.status) {
+      if (query.status.$in) {
+        results = results.filter(d => query.status.$in.includes(d.status));
+      } else {
+        results = results.filter(d => d.status === query.status);
       }
-      return donation;
     }
-    return null;
+    
+    return results.sort((a, b) => b.createdDate - a.createdDate);
   }
 
-  static updateStatus(id, status, volunteerData = null) {
-    const donation = Donation.findById(id);
-    if (donation) {
-      donation.status = status;
-      if (volunteerData) {
-        donation.assignedVolunteer = volunteerData.name;
-        donation.volunteerId = volunteerData.volunteerId;
-        donation.volunteerResponse = volunteerData.response;
-      }
-      
-      // Update tracking
-      if (donation.tracking) {
-        donation.tracking.lastUpdate = new Date().toISOString();
-        donation.tracking.locationHistory.push({
-          location: donation.tracking.currentLocation,
-          timestamp: new Date().toISOString(),
-          status: status,
-          coordinates: donation.tracking.coordinates,
-          note: volunteerData ? `${volunteerData.name} ${volunteerData.response} the donation` : `Status changed to ${status}`
-        });
-        
-        // Update progress
-        if (status === 'Accepted by Volunteer') {
-          donation.tracking.statusProgress.accepted = true;
-        } else if (status === 'Picked Up') {
-          donation.tracking.statusProgress.pickedUp = true;
-        } else if (status === 'In Transit') {
-          donation.tracking.statusProgress.inTransit = true;
-        } else if (status === 'Delivered') {
-          donation.tracking.statusProgress.delivered = true;
-        }
-      }
-      return donation;
-    }
-    return null;
+  static async findById(id) {
+    return this.donations.find(d => d._id === id || d.donationId === id);
   }
 
-  static updateLocation(id, locationData) {
-    const donation = Donation.findById(id);
-    if (donation && donation.tracking) {
-      donation.tracking.currentLocation = locationData.address;
-      donation.tracking.coordinates = locationData.coordinates;
-      donation.tracking.lastUpdate = new Date().toISOString();
-      donation.tracking.distanceCovered = locationData.distanceCovered || donation.tracking.distanceCovered;
-      donation.tracking.estimatedDelivery = locationData.estimatedDelivery || donation.tracking.estimatedDelivery;
-      
-      donation.tracking.locationHistory.push({
-        location: locationData.address,
-        timestamp: new Date().toISOString(),
-        status: locationData.status || 'Moving',
-        coordinates: locationData.coordinates,
-        note: locationData.note || ''
-      });
-      return donation;
-    }
-    return null;
+  static async findByIdAndUpdate(id, update, options = {}) {
+    const donation = await this.findById(id);
+    if (!donation) return null;
+    
+    Object.assign(donation, update);
+    donation.updatedAt = new Date();
+    
+    if (options.new) return donation;
+    return donation;
   }
 
-  static deleteAll() {
-    donations = [];
-    donationCounter = 0;
+  static async findByIdAndDelete(id) {
+    const index = this.donations.findIndex(d => d._id === id || d.donationId === id);
+    if (index === -1) return null;
+    
+    const deleted = this.donations[index];
+    this.donations.splice(index, 1);
+    return deleted;
+  }
+
+  static async countDocuments(query = {}) {
+    return this.donations.length;
+  }
+
+  // Instance method to save
+  async save() {
+    this.updatedAt = new Date();
+    return this;
   }
 }
 

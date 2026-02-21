@@ -124,8 +124,10 @@ function DonorDashboard() {
     }
 
     const donationData = {
+      donorId: `DONOR-${Date.now()}`, // Generate unique donor ID
+      donorName: 'Anonymous Donor', // Can be updated with actual donor name if available
       category: getCategoryName(selectedCategory),
-      itemType: formData.itemType,
+      item: formData.itemType, // Backend expects 'item' field
       quantity: formData.quantity,
       pickupLocation: fullAddress,
       pickupTime: formData.pickupTime,

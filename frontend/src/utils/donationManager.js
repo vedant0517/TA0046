@@ -153,11 +153,19 @@ export const clearAllDonations = async () => {
 // Send OTP to phone number
 export const sendOTP = async (phoneNumber, needyPersonId) => {
   try {
-    const result = await api.post(API_ENDPOINTS.volunteers.sendOTP, {
-      phoneNumber,
-      needyPersonId
+    const response = await fetch(API_ENDPOINTS.volunteers.sendOTP, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ phoneNumber, needyPersonId })
     });
-    return result;
+    const data = await response.json();
+    if (!data.success) {
+      throw new Error(data.message || 'Failed to send OTP');
+    }
+    // Return the full response (not just data.data)
+    return data;
   } catch (error) {
     console.error('Error sending OTP:', error);
     throw error;
@@ -167,11 +175,19 @@ export const sendOTP = async (phoneNumber, needyPersonId) => {
 // Verify OTP
 export const verifyOTP = async (phoneNumber, needyPersonId, otp) => {
   try {
-    return await api.post(API_ENDPOINTS.volunteers.verifyOTP, {
-      phoneNumber,
-      needyPersonId,
-      otp
+    const response = await fetch(API_ENDPOINTS.volunteers.verifyOTP, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ phoneNumber, needyPersonId, otp })
     });
+    const data = await response.json();
+    if (!data.success) {
+      throw new Error(data.message || 'Failed to verify OTP');
+    }
+    // Return the full response data
+    return data.data;
   } catch (error) {
     console.error('Error verifying OTP:', error);
     throw error;

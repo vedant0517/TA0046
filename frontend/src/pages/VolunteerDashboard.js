@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './VolunteerDashboard.css';
-import { getPendingDonations, acceptDonation, declineDonation, addVerifiedDonation, getVerifiedDonations } from '../utils/donationManager';
+import { getPendingDonations, acceptDonation, declineDonation, addVerifiedDonation, getVerifiedDonations, getNeedyPeople, sendOTP, verifyOTP } from '../utils/donationManager';
 import LeafletMap from '../components/LeafletMap';
 
 function VolunteerDashboard() {
@@ -14,19 +14,20 @@ function VolunteerDashboard() {
   const [generatedOtp, setGeneratedOtp] = useState('');
   const [enteredOtp, setEnteredOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
+  const [needyPeople, setNeedyPeople] = useState([]);
 
-  const needyPeople = [
-    { id: 'N001', name: 'Ramesh Patil', area: 'Nagpur', category: 'Food' },
-    { id: 'N002', name: 'Sunita Kale', area: 'Pune', category: 'Clothes' },
-    { id: 'N003', name: 'Mohan Deshmukh', area: 'Mumbai', category: 'Education' },
-    { id: 'N004', name: 'Asha Jadhav', area: 'Nashik', category: 'Medical' },
-    { id: 'N005', name: 'Ravi More', area: 'Aurangabad', category: 'Daily Essentials' },
-    { id: 'N006', name: 'Pooja Shinde', area: 'Kolhapur', category: 'Food' },
-    { id: 'N007', name: 'Suresh Pawar', area: 'Solapur', category: 'Clothes' },
-    { id: 'N008', name: 'Kavita Thakur', area: 'Thane', category: 'Education' },
-    { id: 'N009', name: 'Anil Pawar', area: 'Amravati', category: 'Medical' },
-    { id: 'N010', name: 'Neha Kulkarni', area: 'Satara', category: 'Daily Essentials' },
-  ];
+  // Fetch needy people from API
+  useEffect(() => {
+    const fetchNeedyPeople = async () => {
+      try {
+        const people = await getNeedyPeople();
+        setNeedyPeople(people);
+      } catch (error) {
+        console.error('Error fetching needy people:', error);
+      }
+    };
+    fetchNeedyPeople();
+  }, []);
 
   const handleNeedySelect = (person) => {
     setSelectedNeedy(person);
@@ -44,17 +45,18 @@ function VolunteerDashboard() {
     }
     
     try {
-      // Call backend API to send OTP
-      const { sendOTP } = require('../utils/donationManager');
-      const result = await sendOTP(phoneNumber, selectedNeedy.id);
+      // Call backend API to send OTP - use needyId field from database
+      const result = await sendOTP(phoneNumber, selectedNeedy.needyId);
       
       // Store the OTP returned from backend (for demo)
       setGeneratedOtp(result.demoOTP);
       setShowOtpInput(true);
       setOtpSent(true);
       
-      alert(`📱 OTP sent to ${phoneNumber}!\n\n🔐 Demo OTP: ${result.demoOTP}\n\n(In production, this would be sent via SMS)`);
+      // Simple success message - OTP is now displayed on screen
+      alert(`📱 OTP sent successfully to ${phoneNumber}!`);
     } catch (error) {
+      console.error('Error sending OTP:', error);
       alert('Error sending OTP: ' + error.message);
     }
   };
@@ -63,9 +65,8 @@ function VolunteerDashboard() {
     e.preventDefault();
     
     try {
-      // Call backend API to verify OTP
-      const { verifyOTP } = require('../utils/donationManager');
-      const result = await verifyOTP(phoneNumber, selectedNeedy.id, enteredOtp);
+      // Call backend API to verify OTP - use needyId field from database
+      const result = await verifyOTP(phoneNumber, selectedNeedy.needyId, enteredOtp);
       
       // OTP verified successfully
       const verifiedData = { 
@@ -87,17 +88,18 @@ function VolunteerDashboard() {
       setOtpSent(false);
       setGeneratedOtp('');
     } catch (error) {
+      console.error('Error verifying OTP:', error);
       alert('❌ Invalid OTP or verification failed: ' + error.message);
     }
   };
 
   const handleResendOtp = async () => {
     try {
-      const { sendOTP } = require('../utils/donationManager');
-      const result = await sendOTP(phoneNumber, selectedNeedy.id);
+      // Use needyId field from database
+      const result = await sendOTP(phoneNumber, selectedNeedy.needyId);
       setGeneratedOtp(result.demoOTP);
       setEnteredOtp('');
-      alert(`📱 New OTP sent to ${phoneNumber}!\n\n🔐 Demo OTP: ${result.demoOTP}`);
+      alert(`� New OTP sent successfully!`);
     } catch (error) {
       alert('Error resending OTP: ' + error.message);
     }
@@ -551,6 +553,13 @@ function VolunteerDashboard() {
                 <div className="otp-sent-info">
                   <p className="otp-sent-text">✅ OTP sent to <strong>{phoneNumber}</strong></p>
                 </div>
+                {generatedOtp && (
+                  <div className="demo-otp-display">
+                    <p className="demo-otp-label">🔐 Demo OTP (for testing):</p>
+                    <p className="demo-otp-code">{generatedOtp}</p>
+                    <p className="demo-otp-note">⚠️ In production, this will be sent via SMS</p>
+                  </div>
+                )}
                 <form className="otp-form" onSubmit={handleOtpVerify}>
                   <div className="form-group">
                     <label>Enter OTP</label>

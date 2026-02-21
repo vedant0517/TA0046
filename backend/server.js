@@ -1,9 +1,14 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
+// MongoDB disabled - using in-memory storage
+// const connectDB = require('./config/db');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// MongoDB disabled - using in-memory storage
+// connectDB();
 
 // Import routes
 const donationsRouter = require('./routes/donations');

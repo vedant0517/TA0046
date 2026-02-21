@@ -1,40 +1,45 @@
-// In-memory database for verified donations
-let verifiedDonations = [];
-let verificationCounter = 0;
-
+// In-memory verified donation storage
 class VerifiedDonation {
+  static verifiedDonations = [];
+  static counter = 1;
+
   constructor(data) {
-    this.id = ++verificationCounter;
-    this.verificationId = `VER-${String(verificationCounter).padStart(4, '0')}`;
-    this.needyPersonId = data.needyPersonId || data.id;
-    this.needyPersonName = data.needyPersonName || data.name;
-    this.needyPersonArea = data.needyPersonArea || data.area;
-    this.needyPersonCategory = data.needyPersonCategory || data.category;
-    this.phoneNumber = data.phoneNumber || data.phone;
-    this.verifiedAt = data.verifiedAt || new Date().toISOString();
+    this._id = Date.now().toString() + Math.random().toString(36).substr(2, 9);
+    this.verificationId = `VER-${String(VerifiedDonation.counter++).padStart(4, '0')}`;
+    this.needyPersonId = data.needyPersonId;
+    this.needyPersonName = data.needyPersonName;
+    this.needyPersonArea = data.needyPersonArea || '';
+    this.needyPersonCategory = data.needyPersonCategory || '';
+    this.phoneNumber = data.phoneNumber || '';
+    this.verifiedAt = data.verifiedAt || new Date();
     this.verifiedBy = data.verifiedBy || 'Volunteer';
-    this.status = 'Delivered Successfully';
-    this.donationType = data.donationType || data.category || 'General';
-    this.createdAt = new Date().toISOString();
+    this.status = data.status || 'Delivered Successfully';
+    this.donationType = data.donationType || '';
+    this.createdAt = new Date();
+    this.updatedAt = new Date();
   }
 
-  static getAll() {
-    return verifiedDonations;
-  }
-
-  static findById(id) {
-    return verifiedDonations.find(v => v.id === parseInt(id));
-  }
-
-  static create(data) {
+  static async create(data) {
     const verified = new VerifiedDonation(data);
-    verifiedDonations.push(verified);
+    this.verifiedDonations.push(verified);
     return verified;
   }
 
-  static deleteAll() {
-    verifiedDonations = [];
-    verificationCounter = 0;
+  static async find(query = {}) {
+    return [...this.verifiedDonations].sort((a, b) => b.verifiedAt - a.verifiedAt);
+  }
+
+  static async findById(id) {
+    return this.verifiedDonations.find(v => v._id === id || v.verificationId === id);
+  }
+
+  static async countDocuments(query = {}) {
+    return this.verifiedDonations.length;
+  }
+
+  async save() {
+    this.updatedAt = new Date();
+    return this;
   }
 }
 
