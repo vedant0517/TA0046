@@ -1,9 +1,103 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './VolunteerDashboard.css';
+import { getPendingDonations, acceptDonation, declineDonation, addVerifiedDonation, getVerifiedDonations } from '../utils/donationManager';
+import LeafletMap from '../components/LeafletMap';
 
 function VolunteerDashboard() {
   const [selectedTask, setSelectedTask] = useState(null);
   const [mapVisible, setMapVisible] = useState(false);
+  const [allTasks, setAllTasks] = useState([]);
+  const [selectedNeedy, setSelectedNeedy] = useState(null);
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [assignedNeedy, setAssignedNeedy] = useState([]);
+  const [showOtpInput, setShowOtpInput] = useState(false);
+  const [generatedOtp, setGeneratedOtp] = useState('');
+  const [enteredOtp, setEnteredOtp] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+
+  const needyPeople = [
+    { id: 'N001', name: 'Ramesh Patil', area: 'Nagpur', category: 'Food' },
+    { id: 'N002', name: 'Sunita Kale', area: 'Pune', category: 'Clothes' },
+    { id: 'N003', name: 'Mohan Deshmukh', area: 'Mumbai', category: 'Education' },
+    { id: 'N004', name: 'Asha Jadhav', area: 'Nashik', category: 'Medical' },
+    { id: 'N005', name: 'Ravi More', area: 'Aurangabad', category: 'Daily Essentials' },
+    { id: 'N006', name: 'Pooja Shinde', area: 'Kolhapur', category: 'Food' },
+    { id: 'N007', name: 'Suresh Pawar', area: 'Solapur', category: 'Clothes' },
+    { id: 'N008', name: 'Kavita Thakur', area: 'Thane', category: 'Education' },
+    { id: 'N009', name: 'Anil Pawar', area: 'Amravati', category: 'Medical' },
+    { id: 'N010', name: 'Neha Kulkarni', area: 'Satara', category: 'Daily Essentials' },
+  ];
+
+  const handleNeedySelect = (person) => {
+    setSelectedNeedy(person);
+    setPhoneNumber('');
+    setShowOtpInput(false);
+    setEnteredOtp('');
+    setOtpSent(false);
+  };
+
+  const handlePhoneSubmit = (e) => {
+    e.preventDefault();
+    if (!phoneNumber || phoneNumber.length < 10) {
+      alert('Please enter a valid phone number (at least 10 digits)');
+      return;
+    }
+    
+    // Generate a 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    setGeneratedOtp(otp);
+    setShowOtpInput(true);
+    setOtpSent(true);
+    
+    // In a real app, this would send SMS via backend API
+    // For demo, we show the OTP in an alert
+    alert(`📱 OTP sent to ${phoneNumber}!\n\n🔐 Demo OTP: ${otp}\n\n(In production, this would be sent via SMS)`);
+  };
+
+  const handleOtpVerify = (e) => {
+    e.preventDefault();
+    
+    if (enteredOtp === generatedOtp) {
+      // OTP verified successfully
+      const verifiedData = { 
+        ...selectedNeedy, 
+        phone: phoneNumber, 
+        verified: true,
+        verifiedAt: new Date().toLocaleString()
+      };
+      
+      setAssignedNeedy(prev => [...prev, verifiedData]);
+      
+      // Save to localStorage for other dashboards
+      addVerifiedDonation(verifiedData);
+      
+      alert(`✅ OTP Verified Successfully!\n\n🎉 Donation to ${selectedNeedy.name} has been completed and verified.`);
+      
+      // Reset all states
+      setSelectedNeedy(null);
+      setPhoneNumber('');
+      setShowOtpInput(false);
+      setEnteredOtp('');
+      setOtpSent(false);
+      setGeneratedOtp('');
+    } else {
+      alert('❌ Invalid OTP. Please try again.');
+    }
+  };
+
+  const handleResendOtp = () => {
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    setGeneratedOtp(otp);
+    setEnteredOtp('');
+    alert(`📱 New OTP sent to ${phoneNumber}!\n\n🔐 Demo OTP: ${otp}`);
+  };
+
+  const handleCancelOtp = () => {
+    setShowOtpInput(false);
+    setEnteredOtp('');
+    setOtpSent(false);
+    setGeneratedOtp('');
+  };
 
   // Volunteer Profile Data
   const volunteerProfile = {
@@ -17,63 +111,96 @@ function VolunteerDashboard() {
     rating: 4.8
   };
 
-  // Assigned Tasks
-  const assignedTasks = [
-    {
-      id: 1,
-      taskId: 'TASK-001',
-      donorName: 'Rajesh Kumar',
-      donorId: 'D-2026-145',
-      category: 'Food',
-      pickupLocation: '123 Main Street, Hope City',
-      deliveryLocation: 'Children Shelter - Hope City',
-      priority: 'High',
-      status: 'Accepted',
-      pickupTime: '2026-02-21 10:00 AM',
-      assignedTime: '2026-02-20 05:30 PM',
-      items: '25 kg Rice Bags',
-      distance: '3.2 km',
-      estimatedTime: '15 mins'
-    },
-    {
-      id: 2,
-      taskId: 'TASK-002',
-      donorName: 'Priya Sharma',
-      donorId: 'D-2026-156',
-      category: 'Clothes',
-      pickupLocation: '456 Oak Avenue, Hope City',
-      deliveryLocation: 'Community Center - South District',
+  // Load pending donations from localStorage
+  useEffect(() => {
+    const pendingDonations = getPendingDonations();
+    
+    // Convert donations to task format
+    const tasksFromDonations = pendingDonations.map((donation, index) => ({
+      id: donation.id,
+      taskId: donation.donationId,
+      donorName: donation.donorName,
+      donorId: donation.donorId,
+      category: donation.category,
+      pickupLocation: donation.pickupLocation,
+      deliveryLocation: 'Organization Warehouse',
       priority: 'Medium',
-      status: 'Picked Up',
-      pickupTime: '2026-02-21 02:00 PM',
-      assignedTime: '2026-02-20 06:00 PM',
-      items: '15 Winter Jackets',
-      distance: '5.1 km',
-      estimatedTime: '22 mins'
-    },
-    {
-      id: 3,
-      taskId: 'TASK-003',
-      donorName: 'Ahmed Hassan',
-      donorId: 'D-2026-167',
-      category: 'Education',
-      pickupLocation: '789 Pine Road, Hope City',
-      deliveryLocation: 'Community School - North District',
-      priority: 'Low',
-      status: 'Pending',
-      pickupTime: '2026-02-22 09:00 AM',
-      assignedTime: '2026-02-20 06:15 PM',
-      items: '50 Notebooks & Stationery Set',
-      distance: '2.8 km',
-      estimatedTime: '12 mins'
+      status: donation.status === 'Pending' ? 'Pending' : 'Accepted by Volunteer',
+      pickupTime: new Date(donation.pickupTime).toLocaleString(),
+      assignedTime: new Date(donation.createdDate).toLocaleString(),
+      items: `${donation.quantity} ${donation.item}`,
+      distance: 'TBD',
+      estimatedTime: 'TBD',
+      donationId: donation.id,
+      quantity: donation.quantity,
+      item: donation.item,
+      createdDate: donation.createdDate,
+      isFromStorage: true
+    }));
+
+    setAllTasks(tasksFromDonations);
+    
+    // Load verified donations from localStorage
+    const verified = getVerifiedDonations();
+    const verifiedFormatted = verified.map(v => ({
+      id: v.needyPersonId,
+      name: v.needyPersonName,
+      area: v.needyPersonArea,
+      category: v.needyPersonCategory,
+      phone: v.phoneNumber,
+      verified: true,
+      verifiedAt: v.verifiedAt
+    }));
+    setAssignedNeedy(verifiedFormatted);
+  }, []);
+
+  const handleAcceptDonation = (taskId) => {
+    const task = allTasks.find(t => t.isFromStorage && t.donationId === taskId);
+    if (task) {
+      acceptDonation(task.donationId, {
+        name: volunteerProfile.name,
+        volunteerId: volunteerProfile.volunteerId,
+        response: 'accepted'
+      });
+      
+      // Update local state
+      setAllTasks(prevTasks => 
+        prevTasks.map(t => 
+          t.donationId === taskId ? { ...t, status: 'Accepted by Volunteer' } : t
+        )
+      );
+      
+      alert(`✓ Donation ${task.taskId} accepted! You can now view the map and details.`);
+      setSelectedTask({ ...task, status: 'Accepted by Volunteer' });
     }
-  ];
+  };
+
+  const handleDeclineDonation = (taskId) => {
+    const task = allTasks.find(t => t.isFromStorage && t.donationId === taskId);
+    if (task) {
+      declineDonation(task.donationId, {
+        name: volunteerProfile.name,
+        volunteerId: volunteerProfile.volunteerId,
+        response: 'declined'
+      });
+      
+      // Remove from tasks
+      setAllTasks(prevTasks => 
+        prevTasks.filter(t => t.donationId !== taskId)
+      );
+      
+      alert(`✗ Donation ${task.taskId} declined.`);
+      if (selectedTask?.donationId === taskId) {
+        setSelectedTask(null);
+      }
+    }
+  };
 
   const getStatusSteps = (currentStatus) => {
-    const steps = ['Accepted', 'Picked Up', 'In Transit', 'Delivered'];
+    const steps = ['Accepted', 'Picked Up', 'In Transit', 'Delivered', 'Accepted by Volunteer'];
     return steps.map(step => ({
       step,
-      completed: steps.indexOf(step) < steps.indexOf(currentStatus) || currentStatus === step
+      completed: steps.indexOf(step) <= steps.indexOf(currentStatus) || currentStatus === step
     }));
   };
 
@@ -96,11 +223,14 @@ function VolunteerDashboard() {
             <p>Manage your donation delivery tasks efficiently</p>
           </div>
         </div>
+        <div className="header-banner">
+          <img src="/images/child.png" alt="Children Banner" />
+        </div>
       </div>
 
-      {/* 1️⃣ Volunteer Profile Section */}
+      {/* Volunteer Profile Section */}}
       <section className="dashboard-section">
-        <h2 className="section-heading">1️⃣ Volunteer Profile</h2>
+        <h2 className="section-heading">Volunteer Profile</h2>
         <div className="profile-card">
           <div className="profile-left">
             <div className="profile-avatar">
@@ -145,11 +275,11 @@ function VolunteerDashboard() {
         </div>
       </section>
 
-      {/* 2️⃣ Assigned Donation Tasks */}
+      {/* Assigned Donation Tasks */}
       <section className="dashboard-section">
-        <h2 className="section-heading">2️⃣ Assigned Donation Tasks</h2>
+        <h2 className="section-heading">Assigned Donation Tasks</h2>
         <div className="tasks-list">
-          {assignedTasks.map(task => (
+          {allTasks.map(task => (
             <div key={task.id} className="task-card">
               <div className="task-header">
                 <div className="task-info-left">
@@ -189,25 +319,44 @@ function VolunteerDashboard() {
                 </div>
               </div>
 
-              <button 
-                className="view-map-btn"
-                onClick={() => {
-                  setSelectedTask(task);
-                  setMapVisible(true);
-                }}
-              >
-                🗺️ View Route
-              </button>
+              {task.isFromStorage && task.status === 'Pending' ? (
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+                  <button 
+                    className="accept-btn"
+                    onClick={() => handleAcceptDonation(task.donationId)}
+                    style={{ flex: 1, padding: '0.8rem', background: '#4CAF50', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '0.95rem' }}
+                  >
+                    ✓ Accept Delivery
+                  </button>
+                  <button 
+                    className="decline-btn"
+                    onClick={() => handleDeclineDonation(task.donationId)}
+                    style={{ flex: 1, padding: '0.8rem', background: '#f44336', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '0.95rem' }}
+                  >
+                    ✕ Decline Delivery
+                  </button>
+                </div>
+              ) : (
+                <button 
+                  className="view-map-btn"
+                  onClick={() => {
+                    setSelectedTask(task);
+                    setMapVisible(true);
+                  }}
+                >
+                  🗺️ View Route
+                </button>
+              )}
             </div>
           ))}
         </div>
       </section>
 
-      {/* 3️⃣ Task Status Management */}
+      {/* Task Status Management */}
       <section className="dashboard-section">
-        <h2 className="section-heading">3️⃣ Task Status Management</h2>
+        <h2 className="section-heading">Task Status Management</h2>
         <p className="section-description">Track the progress of your assigned tasks</p>
-        {assignedTasks.map(task => (
+        {allTasks.map(task => (
           <div key={task.id} className="status-management-card">
             <div className="task-title">
               <h4>{task.category} - {task.taskId}</h4>
@@ -240,9 +389,9 @@ function VolunteerDashboard() {
         <p className="transparency-note">📌 Improves transparency for donors and NGOs</p>
       </section>
 
-      {/* 4️⃣ Navigation & Route Assistance */}
+      {/* Navigation & Route Assistance */}
       <section className="dashboard-section">
-        <h2 className="section-heading">4️⃣ Navigation & Route Assistance</h2>
+        <h2 className="section-heading">Navigation & Route Assistance</h2>
         <p className="section-description">Get directions and optimize your route</p>
         
         {mapVisible && selectedTask ? (
@@ -258,10 +407,14 @@ function VolunteerDashboard() {
             </div>
 
             <div className="map-placeholder">
-              <div className="map-icon">🗺️</div>
-              <p>Map would load here with route from Pickup to Delivery location</p>
-              <p className="map-text">Pickup: {selectedTask.pickupLocation}</p>
-              <p className="map-text">Delivery: {selectedTask.deliveryLocation}</p>
+              <LeafletMap 
+                address={selectedTask.pickupLocation} 
+                label="Pickup Location" 
+              />
+              <div className="location-text">
+                <p className="map-text">📍 <strong>Pickup Location:</strong> {selectedTask.pickupLocation}</p>
+                <p className="map-text">🏘️ <strong>Delivery Location:</strong> {selectedTask.deliveryLocation}</p>
+              </div>
             </div>
 
             <div className="route-info">
@@ -300,6 +453,127 @@ function VolunteerDashboard() {
         ) : (
           <div className="no-route-selected">
             <p>Select "View Route" from a task above to see navigation details</p>
+          </div>
+        )}
+      </section>
+
+      {/* Needy People Section */}
+      <section className="dashboard-section">
+        <h2 className="section-heading">Needy People</h2>
+        <p className="section-description">Select a needy person to assign and provide a contact number</p>
+
+        <div className="needy-table-container">
+          <table className="needy-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Area</th>
+                <th>Category</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {needyPeople.map(person => {
+                const isAssigned = assignedNeedy.some(a => a.id === person.id);
+                return (
+                  <tr
+                    key={person.id}
+                    className={`needy-row ${selectedNeedy?.id === person.id ? 'selected' : ''} ${isAssigned ? 'assigned' : ''}`}
+                  >
+                    <td>{person.id}</td>
+                    <td>{person.name}</td>
+                    <td>{person.area}</td>
+                    <td>
+                      <span className={`category-badge ${person.category.toLowerCase().replace(' ', '-')}`}>
+                        {person.category}
+                      </span>
+                    </td>
+                    <td>
+                      {isAssigned ? (
+                        <span className="assigned-badge">✓ Assigned</span>
+                      ) : (
+                        <button
+                          className="select-needy-btn"
+                          onClick={() => handleNeedySelect(person)}
+                        >
+                          Select
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {selectedNeedy && (
+          <div className="phone-form-card">
+            <h3>Assign Contact for {selectedNeedy.name}</h3>
+            <p className="needy-detail">📍 Area: {selectedNeedy.area} &nbsp;|&nbsp; 📦 Category: {selectedNeedy.category}</p>
+            
+            {!showOtpInput ? (
+              <form className="phone-form" onSubmit={handlePhoneSubmit}>
+                <div className="form-group">
+                  <label>Phone Number</label>
+                  <input
+                    type="tel"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    placeholder="Enter phone number"
+                    pattern="[0-9]{10,}"
+                    required
+                  />
+                </div>
+                <div className="phone-form-actions">
+                  <button type="submit" className="submit-phone-btn">📱 Send OTP</button>
+                  <button type="button" className="cancel-phone-btn" onClick={() => setSelectedNeedy(null)}>Cancel</button>
+                </div>
+              </form>
+            ) : (
+              <div className="otp-verification-section">
+                <div className="otp-sent-info">
+                  <p className="otp-sent-text">✅ OTP sent to <strong>{phoneNumber}</strong></p>
+                </div>
+                <form className="otp-form" onSubmit={handleOtpVerify}>
+                  <div className="form-group">
+                    <label>Enter OTP</label>
+                    <input
+                      type="text"
+                      value={enteredOtp}
+                      onChange={(e) => setEnteredOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder="Enter 6-digit OTP"
+                      maxLength="6"
+                      required
+                      className="otp-input"
+                    />
+                  </div>
+                  <div className="otp-actions">
+                    <button type="submit" className="verify-otp-btn">✓ Verify OTP</button>
+                    <button type="button" className="resend-otp-btn" onClick={handleResendOtp}>🔄 Resend OTP</button>
+                    <button type="button" className="cancel-phone-btn" onClick={handleCancelOtp}>Cancel</button>
+                  </div>
+                </form>
+              </div>
+            )}
+          </div>
+        )}
+
+        {assignedNeedy.length > 0 && (
+          <div className="assigned-list">
+            <h3>✅ Verified Donations</h3>
+            <div className="assigned-cards">
+              {assignedNeedy.map(person => (
+                <div key={person.id} className="assigned-card verified">
+                  <div className="verified-badge-card">✓ Verified</div>
+                  <p><strong>{person.name}</strong> ({person.id})</p>
+                  <p>📍 {person.area} &nbsp;|&nbsp; 📦 {person.category}</p>
+                  <p>📞 {person.phone}</p>
+                  <p className="verified-time">🕐 {person.verifiedAt}</p>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </section>

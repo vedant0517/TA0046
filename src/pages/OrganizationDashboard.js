@@ -1,10 +1,57 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './OrganizationDashboard.css';
+import { getAllDonations, getVerifiedDonations } from '../utils/donationManager';
 
 function OrganizationDashboard() {
   const [selectedDonation, setSelectedDonation] = useState(null);
   const [showForm, setShowForm] = useState(false);
-  const [selectedProof, setSelectedProof] = useState(null);
+  const [incomingDonationsState, setIncomingDonationsState] = useState([]);
+  const [verifiedDonations, setVerifiedDonations] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+
+  // Load donations from localStorage on mount
+  useEffect(() => {
+    const donations = getAllDonations();
+    
+    // Convert stored donations to incomingDonations format
+    const convertedDonations = donations.map(donation => ({
+      id: donation.id,
+      donationId: donation.donationId,
+      donorName: donation.donorName,
+      donorId: donation.donorId,
+      category: donation.category,
+      item: donation.item,
+      quantity: donation.quantity,
+      assignedVolunteer: donation.assignedVolunteer || 'Awaiting Assignment',
+      volunteerId: donation.volunteerId || 'N/A',
+      status: donation.status === 'Pending' ? 'Awaiting Volunteer' : donation.status === 'Accepted by Volunteer' ? 'Accepted by Volunteer' : donation.status,
+      pickupDate: new Date(donation.pickupTime).toLocaleDateString(),
+      expectedDelivery: new Date(donation.pickupTime).toLocaleString(),
+      requirement: donation.requirement,
+      isFromStorage: true
+    }));
+    
+    setIncomingDonationsState(convertedDonations);
+    
+    // Load verified donations
+    const verified = getVerifiedDonations();
+    setVerifiedDonations(verified);
+    
+    // Create notifications for recently verified donations
+    const recentVerified = verified.filter(v => {
+      const verifiedTime = new Date(v.verifiedAt);
+      const now = new Date();
+      const hoursDiff = (now - verifiedTime) / (1000 * 60 * 60);
+      return hoursDiff < 24;
+    });
+    
+    setNotifications(recentVerified.map(v => ({
+      id: v.id,
+      message: `\u2705 Donation successfully delivered to ${v.needyPersonName} (${v.needyPersonArea})`,
+      time: v.verifiedAt,
+      type: 'success'
+    })));
+  }, []);
 
   // Organization Profile Data
   const organizationProfile = {
@@ -66,55 +113,6 @@ function OrganizationDashboard() {
     }
   ];
 
-  // Incoming Donations
-  const incomingDonations = [
-    {
-      id: 1,
-      donationId: 'DON-0542',
-      donorName: 'Rajesh Kumar',
-      donorId: 'D-2026-145',
-      category: 'Food',
-      item: 'Rice Bags',
-      quantity: '25 kg',
-      assignedVolunteer: 'Sarah Johnson',
-      volunteerId: 'VOL-2026-001',
-      status: 'In Transit',
-      pickupDate: '2026-02-21',
-      expectedDelivery: '2026-02-21 03:00 PM',
-      requirement: 'REQ-001'
-    },
-    {
-      id: 2,
-      donationId: 'DON-0543',
-      donorName: 'Priya Sharma',
-      donorId: 'D-2026-156',
-      category: 'Clothes',
-      item: 'Winter Jackets',
-      quantity: '15 pieces',
-      assignedVolunteer: 'Ahmed Hassan',
-      volunteerId: 'VOL-2026-003',
-      status: 'Picked Up',
-      pickupDate: '2026-02-21',
-      expectedDelivery: '2026-02-21 05:00 PM',
-      requirement: 'N/A'
-    },
-    {
-      id: 3,
-      donationId: 'DON-0541',
-      donorName: 'Tech Solutions Inc.',
-      donorId: 'D-2026-089',
-      category: 'Education',
-      item: 'Notebooks & Supplies',
-      quantity: '200 pieces',
-      assignedVolunteer: 'Maria Garcia',
-      volunteerId: 'VOL-2026-002',
-      status: 'Delivered',
-      pickupDate: '2026-02-20',
-      expectedDelivery: '2026-02-20 05:30 PM',
-      requirement: 'REQ-002'
-    }
-  ];
-
   // Assigned Volunteers
   const assignedVolunteers = [
     {
@@ -149,39 +147,6 @@ function OrganizationDashboard() {
     }
   ];
 
-  // Proof & Verification
-  const proofRecords = [
-    {
-      id: 1,
-      donationId: 'DON-0541',
-      donorName: 'Tech Solutions Inc.',
-      pickupProof: { imageUrl: '📸', timestamp: '2026-02-20 10:15 AM', location: 'Office' },
-      deliveryProof: { imageUrl: '📸', timestamp: '2026-02-20 05:30 PM', location: 'School' },
-      status: 'Verified',
-      verifiedBy: 'Admin - John Doe',
-      verificationDate: '2026-02-20'
-    },
-    {
-      id: 2,
-      donationId: 'DON-0543',
-      donorName: 'Priya Sharma',
-      pickupProof: { imageUrl: '📸', timestamp: '2026-02-21 02:00 PM', location: 'Home' },
-      deliveryProof: null,
-      status: 'Pending',
-      verifiedBy: 'Pending',
-      verificationDate: 'Pending'
-    },
-    {
-      id: 3,
-      donationId: 'DON-0542',
-      donorName: 'Rajesh Kumar',
-      pickupProof: { imageUrl: '📸', timestamp: '2026-02-21 10:00 AM', location: 'Shop' },
-      deliveryProof: null,
-      status: 'In Progress',
-      verifiedBy: 'In Progress',
-      verificationDate: 'In Progress'
-    }
-  ];
 
   // Inventory/Distribution Log
   const inventoryLog = [
@@ -275,9 +240,9 @@ function OrganizationDashboard() {
         </div>
       </div>
 
-      {/* 1️⃣ Organization Profile Section */}
+      {/* Organization Profile Section */}
       <section className="dashboard-section">
-        <h2 className="section-heading">1️⃣ Organization Profile</h2>
+        <h2 className="section-heading">Organization Profile</h2>
         <div className="profile-card">
           <div className="profile-left">
             <div className="profile-avatar">
@@ -321,13 +286,69 @@ function OrganizationDashboard() {
             </div>
           </div>
         </div>
-        <p className="section-note">📌 Builds donor trust</p>
+
       </section>
 
-      {/* 2️⃣ Current Needs / Requests Management */}
+      {/* Notifications */}
+      {notifications.length > 0 && (
+        <section className="dashboard-section notifications-section">
+          <h2 className="section-heading">🔔 Recent Notifications</h2>
+          <div className="notifications-list">
+            {notifications.map(notification => (
+              <div key={notification.id} className={`notification-card ${notification.type}`}>
+                <div className="notification-icon">✅</div>
+                <div className="notification-content">
+                  <p className="notification-message">{notification.message}</p>
+                  <span className="notification-time">{notification.time}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* OTP Verified & Successful Donations */}
+      {verifiedDonations.length > 0 && (
+        <section className="dashboard-section verified-donations-section">
+          <h2 className="section-heading">✅ OTP Verified & Successful Donations</h2>
+          <p className="section-description">Donations successfully delivered to needy individuals with OTP verification</p>
+          
+          <div className="verified-donations-grid">
+            {verifiedDonations.map(donation => (
+              <div key={donation.id} className="verified-donation-card">
+                <div className="verified-card-header">
+                  <span className="verified-badge">✅ Verified</span>
+                  <span className="verification-id">{donation.verificationId}</span>
+                </div>
+                
+                <div className="verified-card-body">
+                  <div className="needy-info">
+                    <h4>👤 Beneficiary Details</h4>
+                    <p className="needy-name">{donation.needyPersonName}</p>
+                    <p className="needy-area">📍 {donation.needyPersonArea}</p>
+                    <p className="needy-category">🏷️ {donation.needyPersonCategory}</p>
+                  </div>
+                  
+                  <div className="verification-details">
+                    <p><strong>📱 Verified Phone:</strong> {donation.phoneNumber}</p>
+                    <p><strong>🕐 Verification Time:</strong> {donation.verifiedAt}</p>
+                    <p><strong>📦 Delivery Status:</strong> <span className="success-status">{donation.status}</span></p>
+                  </div>
+                </div>
+                
+                <div className="verified-card-footer">
+                  <span className="impact-badge">🎯 Impact Delivered</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Current Needs / Requests Management */}
       <section className="dashboard-section">
         <div className="section-header-with-btn">
-          <h2 className="section-heading">2️⃣ Current Needs / Requests Management</h2>
+          <h2 className="section-heading">Current Needs / Requests Management</h2>
           <button className="add-btn" onClick={() => setShowForm(!showForm)}>+ Create New Request</button>
         </div>
 
@@ -416,14 +437,13 @@ function OrganizationDashboard() {
             </div>
           ))}
         </div>
-        <p className="section-note">📌 Solves mismatch between donations and real needs</p>
       </section>
 
-      {/* 3️⃣ Incoming Donations Tracker */}
+      {/* Incoming Donations Tracker */}
       <section className="dashboard-section">
-        <h2 className="section-heading">3️⃣ Incoming Donations Tracker</h2>
+        <h2 className="section-heading">Incoming Donations Tracker</h2>
         <div className="donations-tracker">
-          {incomingDonations.map(donation => (
+          {incomingDonationsState.map(donation => (
             <div key={donation.id} className="donation-tracker-card">
               <div className="donation-header">
                 <div className="donation-info">
@@ -463,12 +483,11 @@ function OrganizationDashboard() {
             </div>
           ))}
         </div>
-        <p className="section-note">📌 Ensures transparency and accountability</p>
       </section>
 
-      {/* 4️⃣ Volunteer Coordination Panel */}
+      {/* Volunteer Coordination Panel */}
       <section className="dashboard-section">
-        <h2 className="section-heading">4️⃣ Volunteer Coordination Panel</h2>
+        <h2 className="section-heading">Volunteer Coordination Panel</h2>
         <div className="volunteers-grid">
           {assignedVolunteers.map(volunteer => (
             <div key={volunteer.id} className="volunteer-card">
@@ -520,63 +539,11 @@ function OrganizationDashboard() {
             </div>
           ))}
         </div>
-        <p className="section-note">📌 Reduces manual coordination</p>
       </section>
 
-      {/* 5️⃣ Proof & Verification Section */}
+      {/* Inventory / Distribution Log */}
       <section className="dashboard-section">
-        <h2 className="section-heading">5️⃣ Proof & Verification Section</h2>
-        <div className="proof-cards">
-          {proofRecords.map(record => (
-            <div key={record.id} className="proof-card">
-              <div className="proof-header">
-                <div>
-                  <h3>{record.donationId}</h3>
-                  <p>👤 {record.donorName}</p>
-                </div>
-                <span className={`proof-status ${record.status.toLowerCase()}`}>
-                  {record.status}
-                </span>
-              </div>
-
-              <div className="proof-content">
-                <div className="proof-section">
-                  <h4>📸 Pickup Proof</h4>
-                  <div className="proof-image-placeholder">{record.pickupProof.imageUrl}</div>
-                  <p className="proof-meta">🕐 {record.pickupProof.timestamp}</p>
-                  <p className="proof-meta">📍 {record.pickupProof.location}</p>
-                </div>
-
-                {record.deliveryProof && (
-                  <div className="proof-section">
-                    <h4>📸 Delivery Proof</h4>
-                    <div className="proof-image-placeholder">{record.deliveryProof.imageUrl}</div>
-                    <p className="proof-meta">🕐 {record.deliveryProof.timestamp}</p>
-                    <p className="proof-meta">📍 {record.deliveryProof.location}</p>
-                  </div>
-                )}
-              </div>
-
-              <div className="proof-verification">
-                <p><strong>Verified By:</strong> {record.verifiedBy}</p>
-                <p><strong>Date:</strong> {record.verificationDate}</p>
-              </div>
-
-              {record.status === 'Pending' && (
-                <div className="proof-actions">
-                  <button className="approve-btn">✓ Approve</button>
-                  <button className="flag-btn">⚠️ Flag Issue</button>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-        <p className="section-note">📌 Prevents fake or incomplete donations</p>
-      </section>
-
-      {/* 6️⃣ Inventory / Distribution Log */}
-      <section className="dashboard-section">
-        <h2 className="section-heading">6️⃣ Inventory / Distribution Log</h2>
+        <h2 className="section-heading">Inventory / Distribution Log</h2>
         <div className="inventory-table">
           <table>
             <thead>
@@ -613,7 +580,6 @@ function OrganizationDashboard() {
             </tbody>
           </table>
         </div>
-        <p className="section-note">📌 Helps NGOs manage resources efficiently</p>
       </section>
 
       {/* Quick Stats */}
@@ -626,16 +592,13 @@ function OrganizationDashboard() {
           </div>
           <div className="stat-card">
             <p className="stat-title">Incoming Donations</p>
-            <p className="stat-value">{incomingDonations.length}</p>
+            <p className="stat-value">{incomingDonationsState.length}</p>
           </div>
           <div className="stat-card">
             <p className="stat-title">Active Volunteers</p>
             <p className="stat-value">{assignedVolunteers.length}</p>
           </div>
-          <div className="stat-card">
-            <p className="stat-title">Verified Donations</p>
-            <p className="stat-value">{proofRecords.filter(p => p.status === 'Verified').length}</p>
-          </div>
+
         </div>
       </section>
     </div>

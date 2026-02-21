@@ -606,138 +606,6 @@
   border-color: #0d47a1;
 }
 
-/* 5️⃣ Proof & Verification */
-.proof-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-  gap: 1.5rem;
-}
-
-.proof-card {
-  background: white;
-  border-radius: 12px;
-  padding: 1.5rem;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-.proof-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1.5rem;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.proof-header h3 {
-  color: #1a237e;
-  font-size: 1.1rem;
-  margin: 0;
-}
-
-.proof-header p {
-  color: #666;
-  margin: 0.3rem 0 0 0;
-}
-
-.proof-status {
-  padding: 0.4rem 0.8rem;
-  border-radius: 20px;
-  font-weight: 600;
-  font-size: 0.85rem;
-}
-
-.proof-status.verified {
-  background-color: #e8f5e9;
-  color: #1b5e20;
-}
-
-.proof-status.pending {
-  background-color: #fff3e0;
-  color: #e65100;
-}
-
-.proof-status.in-progress {
-  background-color: #f3e5f5;
-  color: #6a1b9a;
-}
-
-.proof-content {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.proof-section h4 {
-  color: #1a237e;
-  font-size: 0.95rem;
-  margin-bottom: 0.8rem;
-}
-
-.proof-image-placeholder {
-  background-color: #f0f0f0;
-  border: 2px dashed #ccc;
-  border-radius: 8px;
-  padding: 2rem 1rem;
-  text-align: center;
-  font-size: 2rem;
-  margin-bottom: 0.5rem;
-}
-
-.proof-meta {
-  font-size: 0.85rem;
-  color: #666;
-  margin: 0.3rem 0;
-}
-
-.proof-verification {
-  background-color: #f9f9f9;
-  padding: 1rem;
-  border-radius: 6px;
-  margin-bottom: 1rem;
-  font-size: 0.9rem;
-}
-
-.proof-verification p {
-  margin: 0.3rem 0;
-}
-
-.proof-actions {
-  display: flex;
-  gap: 0.75rem;
-}
-
-.approve-btn,
-.flag-btn {
-  flex: 1;
-  padding: 0.6rem;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: all 0.3s ease;
-}
-
-.approve-btn {
-  background-color: #e8f5e9;
-  color: #1b5e20;
-}
-
-.approve-btn:hover {
-  background-color: #1b5e20;
-  color: white;
-}
-
-.flag-btn {
-  background-color: #fff3e0;
-  color: #e65100;
-}
-
-.flag-btn:hover {
-  background-color: #e65100;
-  color: white;
-}
 
 /* 6️⃣ Inventory / Distribution Log */
 .inventory-table {
@@ -831,6 +699,175 @@ tbody tr:hover {
   margin: 0;
 }
 
+/* Notifications Section */
+.notifications-section {
+  margin-bottom: 2rem;
+}
+
+.notifications-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.notification-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+  border-radius: 12px;
+  border-left: 4px solid #4CAF50;
+  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.2);
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.notification-icon {
+  font-size: 1.5rem;
+  background: #4CAF50;
+  color: white;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.notification-content {
+  flex: 1;
+}
+
+.notification-message {
+  margin: 0;
+  font-weight: 600;
+  color: #2e7d32;
+  font-size: 1rem;
+}
+
+.notification-time {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+/* Verified Donations Section */
+.verified-donations-section {
+  margin-bottom: 2rem;
+}
+
+.section-description {
+  color: #666;
+  margin-bottom: 1.5rem;
+  font-size: 0.95rem;
+}
+
+.verified-donations-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.5rem;
+}
+
+.verified-donation-card {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  border: 2px solid #4CAF50;
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.verified-donation-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 24px rgba(76, 175, 80, 0.2);
+}
+
+.verified-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  background: linear-gradient(135deg, #4CAF50 0%, #388e3c 100%);
+  color: white;
+}
+
+.verified-badge {
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.verification-id {
+  font-size: 0.85rem;
+  opacity: 0.9;
+  font-family: monospace;
+}
+
+.verified-card-body {
+  padding: 1.5rem;
+}
+
+.needy-info {
+  margin-bottom: 1.25rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.needy-info h4 {
+  margin: 0 0 0.75rem 0;
+  color: #333;
+  font-size: 0.9rem;
+}
+
+.needy-name {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0d47a1;
+  margin: 0 0 0.5rem 0;
+}
+
+.needy-area, .needy-category {
+  margin: 0.3rem 0;
+  color: #555;
+  font-size: 0.95rem;
+}
+
+.verification-details p {
+  margin: 0.5rem 0;
+  font-size: 0.9rem;
+  color: #444;
+}
+
+.success-status {
+  color: #4CAF50;
+  font-weight: 700;
+}
+
+.verified-card-footer {
+  padding: 1rem 1.5rem;
+  background: #f5f5f5;
+  text-align: center;
+}
+
+.impact-badge {
+  display: inline-block;
+  background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+  color: #333;
+  padding: 0.5rem 1.5rem;
+  border-radius: 25px;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .dashboard-header h1 {
@@ -860,10 +897,6 @@ tbody tr:hover {
   }
 
   .volunteers-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .proof-cards {
     grid-template-columns: 1fr;
   }
 
