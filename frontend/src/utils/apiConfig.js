@@ -18,7 +18,7 @@ export const API_ENDPOINTS = {
     deliver: (id) => `${API_BASE_URL}/donations/${id}/deliver`,
     clearAll: `${API_BASE_URL}/donations/all`
   },
-  
+
   // Volunteers
   volunteers: {
     getNeedyPeople: `${API_BASE_URL}/volunteers`,
@@ -27,16 +27,18 @@ export const API_ENDPOINTS = {
     verifyOTP: `${API_BASE_URL}/volunteers/verify-otp`,
     getVerified: `${API_BASE_URL}/volunteers/verified/all`
   },
-  
+
   // Organizations
   organizations: {
+    getDashboardData: `${API_BASE_URL}/organizations/dashboard-data`,
     getProfile: `${API_BASE_URL}/organizations/profile`,
     getNeeds: `${API_BASE_URL}/organizations/needs`,
     createNeed: `${API_BASE_URL}/organizations/needs`,
     updateNeed: (id) => `${API_BASE_URL}/organizations/needs/${id}`,
-    deleteNeed: (id) => `${API_BASE_URL}/organizations/needs/${id}`
+    deleteNeed: (id) => `${API_BASE_URL}/organizations/needs/${id}`,
+    addNeedyPerson: `${API_BASE_URL}/organizations/needy-people`
   },
-  
+
   // AI Assistant
   ai: {
     getNGOs: `${API_BASE_URL}/ai/ngos`,
@@ -62,7 +64,7 @@ export const api = {
       throw error;
     }
   },
-  
+
   post: async (url, body) => {
     try {
       const response = await fetch(url, {
@@ -82,7 +84,7 @@ export const api = {
       throw error;
     }
   },
-  
+
   patch: async (url, body) => {
     try {
       const response = await fetch(url, {
@@ -102,7 +104,7 @@ export const api = {
       throw error;
     }
   },
-  
+
   delete: async (url) => {
     try {
       const response = await fetch(url, {

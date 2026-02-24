@@ -1,20 +1,20 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
-// MongoDB disabled - using in-memory storage
-// const connectDB = require('./config/db');
+const connectDB = require('./config/db');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// MongoDB disabled - using in-memory storage
-// connectDB();
+// Connect to MongoDB
+connectDB();
 
 // Import routes
 const donationsRouter = require('./routes/donations');
 const volunteersRouter = require('./routes/volunteers');
 const organizationsRouter = require('./routes/organizations');
 const aiRouter = require('./routes/ai');
+const authRouter = require('./routes/auth');
 
 // Middleware
 app.use(cors());
@@ -22,6 +22,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // API Routes
+app.use('/api/auth', authRouter);
 app.use('/api/donations', donationsRouter);
 app.use('/api/volunteers', volunteersRouter);
 app.use('/api/organizations', organizationsRouter);
@@ -29,10 +30,11 @@ app.use('/api/ai', aiRouter);
 
 // Root route
 app.get('/', (req, res) => {
-  res.json({ 
+  res.json({
     message: 'Welcome to Care Connect API',
     version: '1.0.0',
     endpoints: {
+      auth: '/api/auth',
       donations: '/api/donations',
       volunteers: '/api/volunteers',
       organizations: '/api/organizations',
@@ -62,6 +64,7 @@ app.listen(PORT, () => {
   console.log(`🚀 Care Connect API Server is running on port ${PORT}`);
   console.log(`📍 API Base URL: http://localhost:${PORT}/api`);
   console.log(`\n📚 Available Endpoints:`);
+  console.log(`   - Auth: http://localhost:${PORT}/api/auth`);
   console.log(`   - Donations: http://localhost:${PORT}/api/donations`);
   console.log(`   - Volunteers: http://localhost:${PORT}/api/volunteers`);
   console.log(`   - Organizations: http://localhost:${PORT}/api/organizations`);

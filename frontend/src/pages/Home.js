@@ -1,7 +1,7 @@
 import React from 'react';
 import './Home.css';
 
-function Home() {
+function Home({ setCurrentPage }) {
   return (
     <div className="home">
       <section className="hero-section">
@@ -13,15 +13,15 @@ function Home() {
           <p className="hero-description">
             A centralized and transparent platform connecting donors, volunteers, and genuine beneficiaries to make help accessible and impactful
           </p>
-          <button className="cta-button">Explore Opportunities</button>
+          <button className="cta-button" onClick={() => setCurrentPage('ai-assistant')}>Explore Opportunities</button>
         </div>
       </section>
 
       <section className="impact-image-section">
         <div className="impact-image-container">
-          <img 
-            src="/images/children-smiling.png" 
-            alt="Happy children benefiting from community support" 
+          <img
+            src="/images/children-smiling.png"
+            alt="Happy children benefiting from community support"
             className="impact-image"
           />
           <div className="impact-overlay">
@@ -35,9 +35,9 @@ function Home() {
         <div className="problem-content">
           <h2 className="section-title">The Challenge We Address</h2>
           <p className="problem-text">
-            Many donors and social groups are willing to help people in need, but the absence of 
-            a centralized and transparent platform makes it difficult to connect them with genuine 
-            beneficiaries. This leads to poor coordination, lack of trust, and inefficient distribution 
+            Many donors and social groups are willing to help people in need, but the absence of
+            a centralized and transparent platform makes it difficult to connect them with genuine
+            beneficiaries. This leads to poor coordination, lack of trust, and inefficient distribution
             of donations.
           </p>
         </div>
@@ -103,9 +103,9 @@ function Home() {
             </ul>
           </div>
           <div className="info-image-container">
-            <img 
-              src="/images/why-choose.png" 
-              alt="CareConnect benefits" 
+            <img
+              src="/images/why-choose.png"
+              alt="CareConnect benefits"
               className="info-image"
             />
           </div>
@@ -117,8 +117,8 @@ function Home() {
           <h2>Ready to Make a Difference?</h2>
           <p>Join thousands of donors, volunteers, and social groups making real impact</p>
           <div className="cta-buttons">
-            <button className="cta-btn primary">Browse Causes</button>
-            <button className="cta-btn secondary">See Success Stories</button>
+            <button className="cta-btn primary" onClick={() => setCurrentPage('ai-assistant')}>Browse Causes</button>
+            <button className="cta-btn secondary" onClick={() => setCurrentPage('organization')}>See Success Stories</button>
           </div>
         </div>
       </section>

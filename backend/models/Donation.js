@@ -1,111 +1,72 @@
-// In-memory donation storage
-class Donation {
-  static donations = [];
-  static counter = 1;
+const mongoose = require('mongoose');
 
-  constructor(data) {
-    this._id = Date.now().toString() + Math.random().toString(36).substr(2, 9);
-    this.donationId = `DON-${String(Donation.counter++).padStart(4, '0')}`;
-    this.donorName = data.donorName || 'Anonymous Donor';
-    this.donorId = data.donorId;
-    this.category = data.category;
-    this.item = data.item;
-    this.quantity = data.quantity;
-    this.status = data.status || 'Pending';
-    this.pickupLocation = data.pickupLocation;
-    this.pickupTime = data.pickupTime || '';
-    this.expectedDelivery = data.expectedDelivery || 'TBD';
-    this.assignedVolunteer = data.assignedVolunteer || '';
-    this.volunteerId = data.volunteerId || '';
-    this.volunteerPhone = data.volunteerPhone || '';
-    this.volunteerVehicle = data.volunteerVehicle || '';
-    this.requirement = data.requirement || 'N/A';
-    this.volunteerResponse = data.volunteerResponse || '';
-    this.bookDetails = data.bookDetails || null;
-    this.addressDetails = data.addressDetails || null;
-    this.coordinates = data.coordinates || null;
-    this.createdDate = new Date();
-    this.updatedAt = new Date();
-    
-    // Initialize tracking
-    this.tracking = data.tracking || {
-      currentLocation: data.pickupLocation,
-      coordinates: data.coordinates || null,
-      lastUpdate: new Date(),
-      locationHistory: [{
-        location: data.pickupLocation,
-        timestamp: new Date(),
-        status: 'Donation Created',
-        coordinates: data.coordinates || null,
-        note: 'Donation request submitted successfully'
-      }],
-      estimatedDelivery: null,
-      distanceCovered: '0 km',
-      destinationAddress: null,
-      statusProgress: {
-        created: true,
-        accepted: false,
-        pickedUp: false,
-        inTransit: false,
-        delivered: false
-      }
-    };
-  }
-
-  // Static methods to mimic Mongoose API
-  static async create(data) {
-    const donation = new Donation(data);
-    this.donations.push(donation);
-    return donation;
-  }
-
-  static async find(query = {}) {
-    let results = [...this.donations];
-    
-    if (query.status) {
-      if (query.status.$in) {
-        results = results.filter(d => query.status.$in.includes(d.status));
-      } else {
-        results = results.filter(d => d.status === query.status);
-      }
+const donationSchema = new mongoose.Schema({
+  donationId: { type: String, unique: true },
+  donorName: { type: String, default: 'Anonymous Donor' },
+  donorId: { type: String },
+  category: { type: String },
+  item: { type: String },
+  quantity: { type: String },
+  status: { type: String, default: 'Pending' },
+  pickupLocation: { type: String },
+  pickupTime: { type: String, default: '' },
+  expectedDelivery: { type: String, default: 'TBD' },
+  assignedVolunteer: { type: String, default: '' },
+  volunteerId: { type: String, default: '' },
+  volunteerPhone: { type: String, default: '' },
+  volunteerVehicle: { type: String, default: '' },
+  requirement: { type: String, default: 'N/A' },
+  volunteerResponse: { type: String, default: '' },
+  bookDetails: { type: mongoose.Schema.Types.Mixed, default: null },
+  addressDetails: { type: mongoose.Schema.Types.Mixed, default: null },
+  coordinates: { type: mongoose.Schema.Types.Mixed, default: null },
+  createdDate: { type: Date, default: Date.now },
+  tracking: {
+    currentLocation: { type: String },
+    coordinates: { type: mongoose.Schema.Types.Mixed, default: null },
+    lastUpdate: { type: Date, default: Date.now },
+    locationHistory: [{
+      location: String,
+      timestamp: { type: Date, default: Date.now },
+      status: String,
+      coordinates: { type: mongoose.Schema.Types.Mixed, default: null },
+      note: { type: String, default: '' }
+    }],
+    estimatedDelivery: { type: String, default: null },
+    distanceCovered: { type: String, default: '0 km' },
+    destinationAddress: { type: String, default: null },
+    statusProgress: {
+      created: { type: Boolean, default: true },
+      accepted: { type: Boolean, default: false },
+      pickedUp: { type: Boolean, default: false },
+      inTransit: { type: Boolean, default: false },
+      delivered: { type: Boolean, default: false }
     }
-    
-    return results.sort((a, b) => b.createdDate - a.createdDate);
   }
+}, { timestamps: true });
 
-  static async findById(id) {
-    return this.donations.find(d => d._id === id || d.donationId === id);
+// Auto-generate donationId before saving
+donationSchema.pre('save', async function () {
+  if (!this.donationId) {
+    const count = await mongoose.model('Donation').countDocuments();
+    this.donationId = `DON-${String(count + 1).padStart(4, '0')}`;
   }
+});
 
-  static async findByIdAndUpdate(id, update, options = {}) {
-    const donation = await this.findById(id);
-    if (!donation) return null;
-    
-    Object.assign(donation, update);
-    donation.updatedAt = new Date();
-    
-    if (options.new) return donation;
-    return donation;
+// Override findById to also search by donationId
+const originalFindById = mongoose.Model.findById;
+donationSchema.statics.findById = async function (id) {
+  // Try by _id first, then by donationId
+  let doc = null;
+  if (mongoose.Types.ObjectId.isValid(id)) {
+    doc = await this.findOne({ _id: id });
   }
+  if (!doc) {
+    doc = await this.findOne({ donationId: id });
+  }
+  return doc;
+};
 
-  static async findByIdAndDelete(id) {
-    const index = this.donations.findIndex(d => d._id === id || d.donationId === id);
-    if (index === -1) return null;
-    
-    const deleted = this.donations[index];
-    this.donations.splice(index, 1);
-    return deleted;
-  }
-
-  static async countDocuments(query = {}) {
-    return this.donations.length;
-  }
-
-  // Instance method to save
-  async save() {
-    this.updatedAt = new Date();
-    return this;
-  }
-}
+const Donation = mongoose.model('Donation', donationSchema);
 
 module.exports = Donation;

@@ -22,29 +22,55 @@ function LeafletMap({ address, label }) {
     setLoading(true);
     setError(null);
 
-    // Use Nominatim (OpenStreetMap) geocoding API
-    const encodedAddress = encodeURIComponent(address);
-    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&limit=1`)
-      .then(res => res.json())
-      .then(data => {
+    // Helper function to try geocoding with fallbacks
+    const tryGeocoding = async (queryArray) => {
+      if (queryArray.length === 0) {
+        setCoords({ lat: 20.5937, lng: 78.9629, displayName: address });
+        setError(null); // Just say it's approximate without orange warning
+        setLoading(false);
+        return;
+      }
+
+      const currentQuery = queryArray[0];
+      try {
+        const encodedAddress = encodeURIComponent(currentQuery);
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&limit=1`);
+        const data = await res.json();
+
         if (data && data.length > 0) {
           setCoords({
             lat: parseFloat(data[0].lat),
             lng: parseFloat(data[0].lon),
             displayName: data[0].display_name
           });
+          // Only show error if we had to fall back to a less precise query
+          if (queryArray.length < 3) {
+            setError('Exact location not found, showing approximate area');
+          } else {
+            setError(null);
+          }
+          setLoading(false);
         } else {
-          // Default to a general location if geocoding fails
-          setCoords({ lat: 20.5937, lng: 78.9629, displayName: address });
-          setError('Exact location not found, showing approximate area');
+          // If this query failed, try the next one in the array
+          await tryGeocoding(queryArray.slice(1));
         }
-        setLoading(false);
-      })
-      .catch(() => {
+      } catch (err) {
         setCoords({ lat: 20.5937, lng: 78.9629, displayName: address });
-        setError('Could not geocode address');
+        setError('Could not connect to map service');
         setLoading(false);
-      });
+      }
+    };
+
+    // Prepare fallback queries (from most specific to least specific)
+    const parts = address.split(',').map(p => p.trim());
+    const queries = [
+      address, // Try full address first
+      parts.slice(1).join(', '), // Try without the first part (e.g. "First Year Canteen")
+      parts[parts.length - 1], // Try just the last part (e.g. "Maharashtra - 440019" or basically the city/state)
+      'Nagpur, Maharashtra' // Ultimate fallback for this specific app context if needed, or just India
+    ].filter(q => q && q.length > 0);
+
+    tryGeocoding(queries);
   }, [address]);
 
   if (loading) {

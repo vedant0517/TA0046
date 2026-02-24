@@ -3,7 +3,7 @@ import './DonorDashboard.css';
 import { addDonation, getDonorDonations, getVerifiedDonations } from '../utils/donationManager';
 import DonationTracker from '../components/DonationTracker';
 
-function DonorDashboard() {
+function DonorDashboard({ user }) {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [showRequestForm, setShowRequestForm] = useState(false);
   const [formData, setFormData] = useState({
@@ -34,13 +34,17 @@ function DonorDashboard() {
   // Load donations from API on mount
   useEffect(() => {
     const fetchDonations = async () => {
-      const donations = await getDonorDonations();
-      setCreatedDonations(donations);
-      
+      const allDonations = await getDonorDonations();
+      // Filter to show only logged-in donor's donations
+      const myDonations = user?.userId
+        ? allDonations.filter(d => d.donorId === user.userId || d.donorId === user._id)
+        : allDonations;
+      setCreatedDonations(myDonations);
+
       // Load verified donations
       const verified = await getVerifiedDonations();
       setVerifiedDonations(verified);
-      
+
       // Create notifications for recently verified donations
       const recentVerified = verified.filter(v => {
         const verifiedTime = new Date(v.verifiedAt);
@@ -48,17 +52,21 @@ function DonorDashboard() {
         const hoursDiff = (now - verifiedTime) / (1000 * 60 * 60);
         return hoursDiff < 24; // Show notifications for donations verified in last 24 hours
       });
-      
-      setNotifications(recentVerified.map(v => ({
-        id: v.id,
+
+      setNotifications(recentVerified.map((v, idx) => ({
+        id: v._id || v.verificationId || idx,
         message: `🎉 Donation successfully delivered to ${v.needyPersonName} in ${v.needyPersonArea}!`,
         time: v.verifiedAt,
         type: 'success'
       })));
     };
-    
+
     fetchDonations();
-  }, []);
+
+    // Poll for live tracking updates every 30 seconds
+    const intervalId = setInterval(fetchDonations, 30000);
+    return () => clearInterval(intervalId);
+  }, [user]);
 
   const handleFormChange = (e) => {
     const { name, value } = e.target;
@@ -75,11 +83,11 @@ function DonorDashboard() {
 
   const handleFormSubmit = async (e) => {
     e.preventDefault();
-    
+
     // Validate required fields
-    if (!selectedCategory || !formData.itemType || !formData.quantity || 
-        !formData.addressLine1 || !formData.city || !formData.state || 
-        !formData.pincode || !formData.pickupTime) {
+    if (!selectedCategory || !formData.itemType || !formData.quantity ||
+      !formData.addressLine1 || !formData.city || !formData.state ||
+      !formData.pincode || !formData.pickupTime) {
       alert('Please fill all required fields');
       return;
     }
@@ -108,7 +116,7 @@ function DonorDashboard() {
           `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(geocodeQuery)}&limit=1`
         );
         const data = await response.json();
-        
+
         if (data && data.length > 0) {
           coordinates = {
             lat: parseFloat(data[0].lat),
@@ -124,8 +132,8 @@ function DonorDashboard() {
     }
 
     const donationData = {
-      donorId: `DONOR-${Date.now()}`, // Generate unique donor ID
-      donorName: 'Anonymous Donor', // Can be updated with actual donor name if available
+      donorId: user?.userId || user?._id || `DONOR-${Date.now()}`,
+      donorName: user?.name || 'Anonymous Donor',
       category: getCategoryName(selectedCategory),
       item: formData.itemType, // Backend expects 'item' field
       quantity: formData.quantity,
@@ -158,12 +166,12 @@ function DonorDashboard() {
     const newDonation = await addDonation(donationData);
 
     setCreatedDonations(prev => [...prev, newDonation]);
-    
+
     // Reset form and coordinates
     setCurrentCoordinates(null);
-    setFormData({ 
-      itemType: '', 
-      quantity: '', 
+    setFormData({
+      itemType: '',
+      quantity: '',
       pickupLocation: '',
       pickupTime: '',
       addressLine1: '',
@@ -180,7 +188,7 @@ function DonorDashboard() {
     });
     setSelectedCategory('');
     setShowRequestForm(false);
-    
+
     alert('Donation created successfully! This donation is now visible to volunteers and organizations.');
   };
 
@@ -196,20 +204,20 @@ function DonorDashboard() {
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude } = position.coords;
-        
+
         try {
           // Using Nominatim reverse geocoding API (OpenStreetMap)
           const response = await fetch(
             `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`
           );
-          
+
           if (!response.ok) {
             throw new Error('Failed to fetch address');
           }
-          
+
           const data = await response.json();
           const address = data.address;
-          
+
           // Map the response to our form fields
           const addressLine1 = [
             address.house_number,
@@ -217,18 +225,18 @@ function DonorDashboard() {
             address.road,
             address.street
           ].filter(Boolean).join(', ') || '';
-          
+
           const addressLine2 = [
             address.neighbourhood,
             address.suburb,
             address.quarter
           ].filter(Boolean).join(', ') || '';
-          
+
           const city = address.city || address.town || address.village || address.municipality || '';
           const state = address.state || '';
           const pincode = address.postcode || '';
           const landmark = address.amenity || address.shop || '';
-          
+
           // Update form with fetched location
           setFormData(prev => ({
             ...prev,
@@ -239,16 +247,16 @@ function DonorDashboard() {
             pincode: pincode,
             landmark: landmark
           }));
-          
+
           // Store coordinates for map
           setCurrentCoordinates({
             lat: latitude,
             lng: longitude
           });
-          
+
           setFetchingLocation(false);
           alert('✅ Location fetched successfully! Please verify and add any missing details.');
-          
+
         } catch (error) {
           console.error('Error fetching address:', error);
           setFetchingLocation(false);
@@ -257,8 +265,8 @@ function DonorDashboard() {
       },
       (error) => {
         setFetchingLocation(false);
-        
-        switch(error.code) {
+
+        switch (error.code) {
           case error.PERMISSION_DENIED:
             alert('❌ Location access denied. Please enable location permissions in your browser settings.');
             break;
@@ -281,19 +289,29 @@ function DonorDashboard() {
   };
 
   const donationCategories = [
-    { id: 'food', icon: '🍚', name: 'Food', description: 'Dry food, cooked meals, groceries' },
-    { id: 'clothes', icon: '👕', name: 'Clothes', description: 'New / usable clothes' },
-    { id: 'education', icon: '📚', name: 'Education', description: 'Books, stationery, bags' },
-    { id: 'medical', icon: '🩺', name: 'Medical Supplies', description: 'First aid, medicines' },
-    { id: 'children', icon: '🧸', name: 'Children Essentials', description: 'Toys, hygiene kits' },
-    { id: 'daily', icon: '🏠', name: 'Daily Essentials', description: 'Blankets, utensils' },
+    { id: 'food', icon: '🍚', name: 'Food', description: 'Dry food, cooked meals, groceries', emergency: true, urgency: 'CRITICAL' },
+    { id: 'clothes', icon: '👕', name: 'Clothes', description: 'New / usable clothes', emergency: false },
+    { id: 'education', icon: '📚', name: 'Education', description: 'Books, stationery, bags', emergency: false },
+    { id: 'medical', icon: '🩺', name: 'Medical Supplies', description: 'First aid, medicines', emergency: true, urgency: 'URGENT' },
+    { id: 'children', icon: '🧸', name: 'Children Essentials', description: 'Toys, hygiene kits', emergency: false },
+    { id: 'daily', icon: '🏠', name: 'Daily Essentials', description: 'Blankets, utensils', emergency: true, urgency: 'HIGH' },
   ];
 
   const donationHistory = [
-    { category: 'Food', item: 'Rice', quantity: '25 kg', date: '2026-02-15', status: 'Delivered', impact: 'Helped 15 children' },
-    { category: 'Clothes', item: 'Winter Jackets', quantity: '10 pieces', date: '2026-02-10', status: 'In Transit', impact: 'Pending' },
-    { category: 'Education', item: 'Notebooks', quantity: '50 pieces', date: '2026-02-05', status: 'Delivered', impact: 'Helped 25 students' },
+    { category: 'Food', item: 'Rice & Wheat Flour', quantity: '50 kg', date: '2026-02-20', status: 'Delivered', impact: 'Fed 30 families (🚨 CRITICAL)', emergency: true },
+    { category: 'Medical Supplies', item: 'First Aid Kits & Bandages', quantity: '15 units', date: '2026-02-19', status: 'Delivered', impact: 'Helped 45 patients (🚨 URGENT)', emergency: true },
   ];
+  const getDonationImpact = (category, quantity) => {
+    switch (category?.toLowerCase()) {
+      case 'food': return `Fed ${quantity} people (🚨 CRITICAL)`;
+      case 'medical': return `Helped ${quantity} patients (🚨 URGENT)`;
+      case 'daily': return `Supported ${quantity} individuals (🚨 HIGH)`;
+      case 'clothes': return `Clothed ${quantity} people`;
+      case 'education': return `Equipped ${quantity} students`;
+      case 'children': return `Helped ${quantity} children`;
+      default: return `Supported community`;
+    }
+  };
 
   return (
     <div className="donor-dashboard">
@@ -314,17 +332,29 @@ function DonorDashboard() {
         <h2 className="section-heading">📦 Donation Categories</h2>
         <div className="categories-grid">
           {donationCategories.map((category) => (
-            <div 
-              key={category.id} 
-              className={`category-card ${selectedCategory === category.id ? 'selected' : ''}`}
+            <div
+              key={category.id}
+              className={`category-card ${selectedCategory === category.id ? 'selected' : ''} ${category.emergency ? 'emergency' : ''}`}
               onClick={() => {
                 setSelectedCategory(category.id);
                 setShowRequestForm(true);
               }}
             >
+              {category.emergency && (
+                <div className={`emergency-badge ${category.urgency.toLowerCase()}`}>
+                  <span className="emergency-icon">🚨</span>
+                  <span className="emergency-text">{category.urgency}</span>
+                  <div className="pulse-ring"></div>
+                </div>
+              )}
               <div className="category-icon">{category.icon}</div>
               <h3>{category.name}</h3>
               <p>{category.description}</p>
+              {category.emergency && (
+                <div className="emergency-footer">
+                  <span className="emergency-message">⚡ Immediate Need</span>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -338,8 +368,8 @@ function DonorDashboard() {
             <form className="donation-form" onSubmit={handleFormSubmit}>
               <div className="form-group">
                 <label>Category</label>
-                <select 
-                  value={selectedCategory} 
+                <select
+                  value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
                   required
                 >
@@ -349,27 +379,27 @@ function DonorDashboard() {
                   ))}
                 </select>
               </div>
-              
+
               <div className="form-group">
                 <label>Item Type</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   name="itemType"
                   value={formData.itemType}
                   onChange={handleFormChange}
-                  placeholder="e.g., Rice, Notebooks, Blankets" 
+                  placeholder="e.g., Rice, Notebooks, Blankets"
                   required
                 />
               </div>
-              
+
               <div className="form-group">
                 <label>Quantity (units)</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   name="quantity"
                   value={formData.quantity}
                   onChange={handleFormChange}
-                  placeholder="e.g., 25 kg, 50 pieces" 
+                  placeholder="e.g., 25 kg, 50 pieces"
                   required
                 />
               </div>
@@ -383,14 +413,14 @@ function DonorDashboard() {
                   </div>
 
                   <div className="form-group">
-                    <label>Book Titles / Names <span style={{fontSize: '0.85em', color: '#666'}}>(separate with commas)</span></label>
+                    <label>Book Titles / Names <span style={{ fontSize: '0.85em', color: '#666' }}>(separate with commas)</span></label>
                     <textarea
                       name="bookTitles"
                       value={formData.bookTitles}
                       onChange={handleFormChange}
                       placeholder="e.g., Mathematics Grade 8, English Grammar, Science Textbook"
                       rows="3"
-                      style={{resize: 'vertical', padding: '0.75rem', fontSize: '1rem', fontFamily: 'inherit'}}
+                      style={{ resize: 'vertical', padding: '0.75rem', fontSize: '1rem', fontFamily: 'inherit' }}
                     />
                   </div>
 
@@ -465,14 +495,14 @@ function DonorDashboard() {
                   </div>
                 </>
               )}
-              
+
               {/* Pickup Location Section */}
               <div className="pickup-location-section">
                 <h4 className="section-subtitle">📍 Pickup Location Details</h4>
                 <p className="section-note">Please provide complete address for accurate pickup</p>
-                
-                <button 
-                  type="button" 
+
+                <button
+                  type="button"
                   className="fetch-location-btn"
                   onClick={fetchCurrentLocation}
                   disabled={fetchingLocation}
@@ -485,55 +515,55 @@ function DonorDashboard() {
                     <>🎯 Use Current Location</>
                   )}
                 </button>
-                
+
                 {!currentCoordinates && (
                   <div className="location-tip">
                     �️ <strong>GPS Tracking:</strong> Use "Current Location" button to capture precise latitude/longitude coordinates for accurate map location!
                   </div>
                 )}
-                
+
                 {currentCoordinates && (
-                  <div className="location-tip" style={{background: 'linear-gradient(135deg, #c8e6c9 0%, #a5d6a7 100%)', borderColor: '#4caf50', color: '#2e7d32'}}>
+                  <div className="location-tip" style={{ background: 'linear-gradient(135deg, #c8e6c9 0%, #a5d6a7 100%)', borderColor: '#4caf50', color: '#2e7d32' }}>
                     ✅ <strong>GPS Enabled:</strong> Precise coordinates captured ({currentCoordinates.lat.toFixed(4)}°, {currentCoordinates.lng.toFixed(4)}°)
                   </div>
                 )}
-                
+
                 <div className="form-group">
                   <label>Address Line 1 <span className="required">*</span></label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     name="addressLine1"
                     value={formData.addressLine1}
                     onChange={handleFormChange}
-                    placeholder="House No., Building Name, Street" 
+                    placeholder="House No., Building Name, Street"
                     required
                   />
                 </div>
-                
+
                 <div className="form-group">
                   <label>Address Line 2 (Optional)</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     name="addressLine2"
                     value={formData.addressLine2}
                     onChange={handleFormChange}
-                    placeholder="Area, Locality" 
+                    placeholder="Area, Locality"
                   />
                 </div>
-                
+
                 <div className="form-row">
                   <div className="form-group">
                     <label>City <span className="required">*</span></label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       name="city"
                       value={formData.city}
                       onChange={handleFormChange}
-                      placeholder="e.g., Bangalore" 
+                      placeholder="e.g., Bangalore"
                       required
                     />
                   </div>
-                  
+
                   <div className="form-group">
                     <label>State <span className="required">*</span></label>
                     <select
@@ -569,34 +599,34 @@ function DonorDashboard() {
                     </select>
                   </div>
                 </div>
-                
+
                 <div className="form-row">
                   <div className="form-group">
                     <label>Pincode <span className="required">*</span></label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       name="pincode"
                       value={formData.pincode}
                       onChange={handleFormChange}
-                      placeholder="6-digit pincode" 
+                      placeholder="6-digit pincode"
                       pattern="[0-9]{6}"
                       maxLength="6"
                       required
                     />
                   </div>
-                  
+
                   <div className="form-group">
                     <label>Landmark (Optional)</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       name="landmark"
                       value={formData.landmark}
                       onChange={handleFormChange}
-                      placeholder="Near Metro Station, Mall, etc." 
+                      placeholder="Near Metro Station, Mall, etc."
                     />
                   </div>
                 </div>
-                
+
                 <div className="location-preview">
                   <strong>📍 Complete Address:</strong>
                   <p>
@@ -609,28 +639,28 @@ function DonorDashboard() {
                   </p>
                 </div>
               </div>
-              
+
               <div className="form-group">
                 <label>Preferred Pickup Time</label>
-                <input 
-                  type="datetime-local" 
+                <input
+                  type="datetime-local"
                   name="pickupTime"
                   value={formData.pickupTime}
                   onChange={handleFormChange}
                   required
                 />
               </div>
-              
+
               <button type="submit" className="submit-btn">Submit Donation Request</button>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 className="cancel-btn"
                 onClick={() => {
                   setShowRequestForm(false);
                   setCurrentCoordinates(null);
-                  setFormData({ 
-                    itemType: '', 
-                    quantity: '', 
+                  setFormData({
+                    itemType: '',
+                    quantity: '',
                     pickupLocation: '',
                     pickupTime: '',
                     addressLine1: '',
@@ -662,7 +692,7 @@ function DonorDashboard() {
           <h2 className="section-heading">📍 Real-Time Donation Tracking</h2>
           <p className="section-description">Track your donations with live location updates and volunteer information</p>
           {createdDonations.map(donation => (
-            <DonationTracker key={donation.id} donation={donation} />
+            <DonationTracker key={donation._id || donation.donationId || donation.id} donation={donation} />
           ))}
         </section>
       )}
@@ -690,15 +720,15 @@ function DonorDashboard() {
         <section className="dashboard-section verified-donations-section">
           <h2 className="section-heading">✅ OTP Verified & Successful Donations</h2>
           <p className="section-description">Donations that have been successfully delivered and verified via OTP</p>
-          
+
           <div className="verified-donations-grid">
             {verifiedDonations.map(donation => (
-              <div key={donation.id} className="verified-donation-card">
+              <div key={donation._id || donation.verificationId} className="verified-donation-card">
                 <div className="verified-card-header">
                   <span className="verified-badge">✅ Verified</span>
                   <span className="verification-id">{donation.verificationId}</span>
                 </div>
-                
+
                 <div className="verified-card-body">
                   <div className="needy-info">
                     <h4>👤 Delivered To</h4>
@@ -706,14 +736,14 @@ function DonorDashboard() {
                     <p className="needy-area">📍 {donation.needyPersonArea}</p>
                     <p className="needy-category">🏷️ {donation.needyPersonCategory}</p>
                   </div>
-                  
+
                   <div className="verification-details">
                     <p><strong>📱 Contact:</strong> {donation.phoneNumber}</p>
                     <p><strong>🕐 Verified At:</strong> {donation.verifiedAt}</p>
                     <p><strong>📦 Status:</strong> <span className="success-status">{donation.status}</span></p>
                   </div>
                 </div>
-                
+
                 <div className="verified-card-footer">
                   <span className="impact-badge">🎉 Making a difference!</span>
                 </div>
@@ -738,19 +768,37 @@ function DonorDashboard() {
               </tr>
             </thead>
             <tbody>
-              {donationHistory.map((donation, index) => (
-                <tr key={index}>
-                  <td>{donation.category}</td>
-                  <td>{donation.item} - {donation.quantity}</td>
-                  <td>{donation.date}</td>
-                  <td>
-                    <span className={`status-pill ${donation.status.toLowerCase().replace(' ', '-')}`}>
-                      {donation.status}
-                    </span>
+              {createdDonations.length === 0 ? (
+                <tr>
+                  <td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: '#666' }}>
+                    No donation history found. Create your first donation request above!
                   </td>
-                  <td>{donation.impact}</td>
                 </tr>
-              ))}
+              ) : (
+                [...createdDonations].reverse().map((donation) => {
+                  const isEmergency = ['Food', 'Medical Supplies', 'Daily Essentials'].includes(donation.category) ||
+                    ['food', 'medical', 'daily'].includes(donation.category?.toLowerCase());
+
+                  return (
+                    <tr key={donation._id || donation.donationId || donation.id} className={isEmergency ? 'emergency-row' : ''}>
+                      <td>
+                        <div className="category-cell">
+                          {isEmergency && <span className="table-emergency-icon">🚨</span>}
+                          {donation.category}
+                        </div>
+                      </td>
+                      <td>{donation.item} - {donation.quantity}</td>
+                      <td>{donation.createdAt ? new Date(donation.createdAt).toLocaleDateString() : 'Recent'}</td>
+                      <td>
+                        <span className={`status-pill ${donation.status?.toLowerCase().replace(/\s+/g, '-')}`}>
+                          {donation.status || 'Pending'}
+                        </span>
+                      </td>
+                      <td>{getDonationImpact(donation.category, donation.quantity)}</td>
+                    </tr>
+                  )
+                })
+              )}
             </tbody>
           </table>
         </div>

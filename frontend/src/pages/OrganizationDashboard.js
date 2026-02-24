@@ -2,21 +2,39 @@ import React, { useState, useEffect } from 'react';
 import './OrganizationDashboard.css';
 import { getAllDonations, getVerifiedDonations } from '../utils/donationManager';
 
-function OrganizationDashboard() {
+const API_BASE = 'http://localhost:5000/api';
+
+function OrganizationDashboard({ user }) {
   const [selectedDonation, setSelectedDonation] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [incomingDonationsState, setIncomingDonationsState] = useState([]);
   const [verifiedDonations, setVerifiedDonations] = useState([]);
   const [notifications, setNotifications] = useState([]);
+  const [currentNeeds, setCurrentNeeds] = useState([]);
+  const [newRequest, setNewRequest] = useState({
+    category: '', itemDescription: '', quantityNeeded: '', urgencyLevel: 'Medium', location: '', beneficiaryType: '', estimatedDuration: ''
+  });
+
+  // State for registering a new needy person / beneficiary
+  const [showNeedyForm, setShowNeedyForm] = useState(false);
+  const [newNeedy, setNewNeedy] = useState({
+    name: '', area: '', category: '', phone: ''
+  });
+
+  // Dynamic States
+  const [organizationProfile, setOrganizationProfile] = useState(null);
+  const [assignedVolunteers, setAssignedVolunteers] = useState([]);
+  const [inventoryLog, setInventoryLog] = useState([]);
+
 
   // Load donations from API on mount
   useEffect(() => {
     const fetchDonations = async () => {
       const donations = await getAllDonations();
-      
+
       // Convert stored donations to incomingDonations format
       const convertedDonations = donations.map(donation => ({
-        id: donation.id,
+        id: donation._id || donation.donationId,
         donationId: donation.donationId,
         donorName: donation.donorName,
         donorId: donation.donorId,
@@ -31,13 +49,13 @@ function OrganizationDashboard() {
         requirement: donation.requirement,
         isFromStorage: true
       }));
-      
+
       setIncomingDonationsState(convertedDonations);
-      
+
       // Load verified donations
       const verified = await getVerifiedDonations();
       setVerifiedDonations(verified);
-      
+
       // Create notifications for recently verified donations
       const recentVerified = verified.filter(v => {
         const verifiedTime = new Date(v.verifiedAt);
@@ -45,171 +63,105 @@ function OrganizationDashboard() {
         const hoursDiff = (now - verifiedTime) / (1000 * 60 * 60);
         return hoursDiff < 24;
       });
-      
-      setNotifications(recentVerified.map(v => ({
-        id: v.id,
+
+      setNotifications(recentVerified.map((v, idx) => ({
+        id: v._id || v.verificationId || idx,
         message: `\u2705 Donation successfully delivered to ${v.needyPersonName} (${v.needyPersonArea})`,
-        time: v.verifiedAt,
+        time: new Date(v.verifiedAt).toLocaleString(),
         type: 'success'
       })));
     };
-    
-    fetchDonations();
-  }, []);
 
-  // Organization Profile Data
-  const organizationProfile = {
-    name: 'Hope City Community Center',
-    registrationId: 'ORG-2025-0042',
-    areasServed: ['North District', 'South District', 'Central Zone'],
-    contact: {
-      email: 'info@hopecity.org',
-      phone: '+1-555-0123',
-      address: '789 Community Lane, Hope City'
-    },
-    verificationStatus: 'Admin Verified',
-    verifiedDate: '2025-11-15',
-    donationCategoriesAccepted: ['Food', 'Clothes', 'Education', 'Medical', 'Essentials'],
-    totalDonationsReceived: 287,
-    trustScore: 4.9
+    const fetchNeeds = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/organizations/needs`);
+        const data = await response.json();
+        if (data.success) setCurrentNeeds(data.data);
+      } catch (error) {
+        console.error('Error fetching needs:', error);
+      }
+    };
+
+    const fetchDashboardData = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/organizations/dashboard-data`);
+        const data = await response.json();
+        if (data.success) {
+          // Merge logged in user name with the profile stats
+          const profile = data.data.profile;
+          if (user?.name) {
+            profile.name = user.name;
+          }
+          if (user?.email) {
+            profile.contact.email = user.email;
+          }
+          if (user?.phone) {
+            profile.contact.phone = user.phone;
+          }
+          setOrganizationProfile(profile);
+          setAssignedVolunteers(data.data.volunteers);
+          setInventoryLog(data.data.inventory);
+        }
+      } catch (error) {
+        console.error('Error fetching comprehensive dashboard data:', error);
+      }
+    };
+
+    fetchDonations();
+    fetchNeeds();
+    fetchDashboardData();
+  }, [user]);
+
+  const handleCreateRequest = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch(`${API_BASE}/organizations/needs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newRequest)
+      });
+      const data = await response.json();
+      if (data.success) {
+        setCurrentNeeds(prev => [...prev, data.data]);
+        setNewRequest({ category: '', itemDescription: '', quantityNeeded: '', urgencyLevel: 'Medium', location: '', beneficiaryType: '', estimatedDuration: '' });
+        setShowForm(false);
+        alert('✅ Request created successfully!');
+      }
+    } catch (error) {
+      alert('Error creating request: ' + error.message);
+    }
   };
 
-  // Current Needs/Requests
-  const currentNeeds = [
-    {
-      id: 1,
-      requestId: 'REQ-001',
-      category: 'Food',
-      itemDescription: 'Rice, Dal, Cooking Oil',
-      quantityNeeded: '100 kg',
-      urgencyLevel: 'High',
-      location: 'Children Shelter - North District',
-      postedDate: '2026-02-20',
-      status: 'Active',
-      beneficiaryType: 'Children (25 kids)',
-      estimatedDuration: 'Monthly'
-    },
-    {
-      id: 2,
-      requestId: 'REQ-002',
-      category: 'Education',
-      itemDescription: 'Notebooks, Pencils, Books',
-      quantityNeeded: '200 pieces',
-      urgencyLevel: 'Medium',
-      location: 'Community School - South District',
-      postedDate: '2026-02-19',
-      status: 'Active',
-      beneficiaryType: 'Students (40 students)',
-      estimatedDuration: 'Quarterly'
-    },
-    {
-      id: 3,
-      requestId: 'REQ-003',
-      category: 'Medical',
-      itemDescription: 'First Aid Kits, Bandages',
-      quantityNeeded: '15 kits',
-      urgencyLevel: 'High',
-      location: 'Clinic - Central Zone',
-      postedDate: '2026-02-18',
-      status: 'Active',
-      beneficiaryType: 'General Population',
-      estimatedDuration: 'Ongoing'
+  const handleRegisterNeedy = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch(`${API_BASE}/organizations/needy-people`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newNeedy)
+      });
+      const data = await response.json();
+      if (data.success) {
+        setNewNeedy({ name: '', area: '', category: '', phone: '' });
+        setShowNeedyForm(false);
+        alert(`✅ Beneficiary ${data.data.name} registered successfully! ID: ${data.data.needyId}`);
+      } else {
+        alert('Error: ' + data.message);
+      }
+    } catch (error) {
+      alert('Error registering beneficiary: ' + error.message);
     }
-  ];
+  };
 
-  // Assigned Volunteers
-  const assignedVolunteers = [
-    {
-      id: 1,
-      name: 'Sarah Johnson',
-      volunteerId: 'VOL-2026-001',
-      status: 'Busy',
-      currentTasks: 2,
-      contact: '+1-555-0201',
-      area: 'North District',
-      tasksInProgress: ['DON-0542', 'DON-0546']
-    },
-    {
-      id: 2,
-      name: 'Maria Garcia',
-      volunteerId: 'VOL-2026-002',
-      status: 'Available',
-      currentTasks: 0,
-      contact: '+1-555-0202',
-      area: 'Central Zone',
-      tasksInProgress: []
-    },
-    {
-      id: 3,
-      name: 'Ahmed Hassan',
-      volunteerId: 'VOL-2026-003',
-      status: 'Busy',
-      currentTasks: 1,
-      contact: '+1-555-0203',
-      area: 'South District',
-      tasksInProgress: ['DON-0543']
-    }
-  ];
-
-
-  // Inventory/Distribution Log
-  const inventoryLog = [
-    {
-      id: 1,
-      date: '2026-02-20',
-      type: 'Received',
-      category: 'Education',
-      item: 'Notebooks & Supplies',
-      quantity: '200 pieces',
-      donor: 'Tech Solutions Inc.',
-      status: 'Stored'
-    },
-    {
-      id: 2,
-      date: '2026-02-20',
-      type: 'Distributed',
-      category: 'Education',
-      item: 'Notebooks',
-      quantity: '150 pieces',
-      beneficiary: 'Community School',
-      beneficiaryType: 'Students',
-      status: 'Completed'
-    },
-    {
-      id: 3,
-      date: '2026-02-19',
-      type: 'Received',
-      category: 'Food',
-      item: 'Rice Bags',
-      quantity: '50 kg',
-      donor: 'Anonymous',
-      status: 'Stored'
-    },
-    {
-      id: 4,
-      date: '2026-02-19',
-      type: 'Distributed',
-      category: 'Food',
-      item: 'Rice & Dal Mix',
-      quantity: '40 kg',
-      beneficiary: 'Children Shelter',
-      beneficiaryType: 'Children',
-      status: 'Completed'
-    },
-    {
-      id: 5,
-      date: '2026-02-18',
-      type: 'Received',
-      category: 'Clothes',
-      item: 'Winter Jackets',
-      quantity: '20 pieces',
-      donor: 'Clothing Store XYZ',
-      status: 'Stored'
-    }
-  ];
+  // ----------------------------------------------------------------------
+  // RENDER LOGIC
+  // ----------------------------------------------------------------------
+  if (!organizationProfile) {
+    return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading organization data...</div>;
+  }
 
   const getUrgencyColor = (urgency) => {
-    switch(urgency) {
+    switch (urgency) {
       case 'High': return '#d32f2f';
       case 'Medium': return '#f57c00';
       case 'Low': return '#388e3c';
@@ -218,7 +170,7 @@ function OrganizationDashboard() {
   };
 
   const getStatusColor = (status) => {
-    switch(status) {
+    switch (status) {
       case 'Verified':
         return { bg: '#e8f5e9', text: '#1b5e20' };
       case 'Pending':
@@ -316,15 +268,15 @@ function OrganizationDashboard() {
         <section className="dashboard-section verified-donations-section">
           <h2 className="section-heading">✅ OTP Verified & Successful Donations</h2>
           <p className="section-description">Donations successfully delivered to needy individuals with OTP verification</p>
-          
+
           <div className="verified-donations-grid">
             {verifiedDonations.map(donation => (
-              <div key={donation.id} className="verified-donation-card">
+              <div key={donation._id || donation.verificationId} className="verified-donation-card">
                 <div className="verified-card-header">
                   <span className="verified-badge">✅ Verified</span>
                   <span className="verification-id">{donation.verificationId}</span>
                 </div>
-                
+
                 <div className="verified-card-body">
                   <div className="needy-info">
                     <h4>👤 Beneficiary Details</h4>
@@ -332,14 +284,14 @@ function OrganizationDashboard() {
                     <p className="needy-area">📍 {donation.needyPersonArea}</p>
                     <p className="needy-category">🏷️ {donation.needyPersonCategory}</p>
                   </div>
-                  
+
                   <div className="verification-details">
                     <p><strong>📱 Verified Phone:</strong> {donation.phoneNumber}</p>
                     <p><strong>🕐 Verification Time:</strong> {donation.verifiedAt}</p>
                     <p><strong>📦 Delivery Status:</strong> <span className="success-status">{donation.status}</span></p>
                   </div>
                 </div>
-                
+
                 <div className="verified-card-footer">
                   <span className="impact-badge">🎯 Impact Delivered</span>
                 </div>
@@ -348,6 +300,78 @@ function OrganizationDashboard() {
           </div>
         </section>
       )}
+
+      {/* Beneficiary Registration Section */}
+      <section className="dashboard-section beneficiary-section">
+        <div className="section-header-with-btn">
+          <h2 className="section-heading">Register New Beneficiary</h2>
+          <button className="add-btn" onClick={() => setShowNeedyForm(!showNeedyForm)}>
+            {showNeedyForm ? 'Close Form' : '+ Register Beneficiary'}
+          </button>
+        </div>
+
+        {showNeedyForm && (
+          <div className="request-form-card">
+            <h3>Add Needy Person Details</h3>
+            <p className="section-description">Register an individual or family so volunteers can deliver donations to them.</p>
+            <form className="needs-form" onSubmit={handleRegisterNeedy}>
+
+              <div className="form-group">
+                <label>Full Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Rahul Sharma"
+                  value={newNeedy.name}
+                  onChange={(e) => setNewNeedy({ ...newNeedy, name: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Area / Location</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Pune, South District"
+                  value={newNeedy.area}
+                  onChange={(e) => setNewNeedy({ ...newNeedy, area: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Primary Need (Category)</label>
+                <select
+                  value={newNeedy.category}
+                  onChange={(e) => setNewNeedy({ ...newNeedy, category: e.target.value })}
+                  required
+                >
+                  <option value="">Select Category</option>
+                  <option value="Food">Food</option>
+                  <option value="Clothes">Clothes</option>
+                  <option value="Education">Education</option>
+                  <option value="Medical">Medical</option>
+                  <option value="Essentials">Daily Essentials</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Contact Number (Optional)</label>
+                <input
+                  type="tel"
+                  placeholder="+91..."
+                  value={newNeedy.phone}
+                  onChange={(e) => setNewNeedy({ ...newNeedy, phone: e.target.value })}
+                />
+              </div>
+
+              <div className="form-actions">
+                <button type="button" className="cancel-btn" onClick={() => setShowNeedyForm(false)}>Cancel</button>
+                <button type="submit" className="submit-btn primary">Register Beneficiary</button>
+              </div>
+            </form>
+          </div>
+        )}
+      </section>
 
       {/* Current Needs / Requests Management */}
       <section className="dashboard-section">
@@ -359,42 +383,48 @@ function OrganizationDashboard() {
         {showForm && (
           <div className="request-form-card">
             <h3>Create Donation Request</h3>
-            <form className="needs-form">
+            <form className="needs-form" onSubmit={handleCreateRequest}>
               <div className="form-group">
                 <label>Donation Category</label>
-                <select>
-                  <option>Select Category</option>
-                  <option>Food</option>
-                  <option>Clothes</option>
-                  <option>Education</option>
-                  <option>Medical</option>
-                  <option>Essentials</option>
+                <select value={newRequest.category} onChange={(e) => setNewRequest({ ...newRequest, category: e.target.value })} required>
+                  <option value="">Select Category</option>
+                  <option value="Food">Food</option>
+                  <option value="Clothes">Clothes</option>
+                  <option value="Education">Education</option>
+                  <option value="Medical">Medical</option>
+                  <option value="Essentials">Essentials</option>
                 </select>
               </div>
 
               <div className="form-group">
                 <label>Item Description</label>
-                <textarea placeholder="Describe items needed..." rows="3"></textarea>
+                <textarea placeholder="Describe items needed..." rows="3" value={newRequest.itemDescription} onChange={(e) => setNewRequest({ ...newRequest, itemDescription: e.target.value })} required></textarea>
               </div>
 
               <div className="form-row">
                 <div className="form-group">
                   <label>Quantity Needed</label>
-                  <input type="text" placeholder="e.g., 100 kg, 50 pieces" />
+                  <input type="text" placeholder="e.g., 100 kg, 50 pieces" value={newRequest.quantityNeeded} onChange={(e) => setNewRequest({ ...newRequest, quantityNeeded: e.target.value })} required />
                 </div>
                 <div className="form-group">
                   <label>Urgency Level</label>
-                  <select>
-                    <option>Low</option>
-                    <option>Medium</option>
-                    <option>High</option>
+                  <select value={newRequest.urgencyLevel} onChange={(e) => setNewRequest({ ...newRequest, urgencyLevel: e.target.value })}>
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
                   </select>
                 </div>
               </div>
 
-              <div className="form-group">
-                <label>Location of Requirement</label>
-                <input type="text" placeholder="Enter location" />
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Location of Requirement</label>
+                  <input type="text" placeholder="Enter location" value={newRequest.location} onChange={(e) => setNewRequest({ ...newRequest, location: e.target.value })} required />
+                </div>
+                <div className="form-group">
+                  <label>Beneficiary Type</label>
+                  <input type="text" placeholder="e.g., Children, Students" value={newRequest.beneficiaryType} onChange={(e) => setNewRequest({ ...newRequest, beneficiaryType: e.target.value })} />
+                </div>
               </div>
 
               <div className="form-actions">

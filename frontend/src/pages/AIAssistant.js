@@ -20,7 +20,7 @@ function AIAssistant({ setCurrentPage }) {
 
   const filterByLocation = (items) => {
     if (!searchLocation.trim()) return items;
-    return items.filter(item => 
+    return items.filter(item =>
       item.location?.toLowerCase().includes(searchLocation.toLowerCase()) ||
       item.area?.toLowerCase().includes(searchLocation.toLowerCase())
     );
@@ -45,79 +45,79 @@ function AIAssistant({ setCurrentPage }) {
 
   const generateAIResponse = (question) => {
     const lowerQuestion = question.toLowerCase();
-    
+
     // Detect specific locations
     const locations = ['mumbai', 'delhi', 'bangalore', 'chennai', 'pune', 'hyderabad', 'kolkata', 'ahmedabad'];
     const mentionedLocation = locations.find(loc => lowerQuestion.includes(loc));
-    
+
     // NGO-related queries
     if (lowerQuestion.includes('ngo') || lowerQuestion.includes('organization') || lowerQuestion.includes('charity')) {
-      const filteredNgos = mentionedLocation 
+      const filteredNgos = mentionedLocation
         ? mockData.ngos.filter(ngo => ngo.location.toLowerCase() === mentionedLocation)
         : mockData.ngos.slice(0, 2);
-      
+
       if (filteredNgos.length === 0) {
-        return `I couldn't find NGOs specifically in ${mentionedLocation}. Here are some nearby options:\n\n${mockData.ngos.slice(0, 2).map(ngo => 
+        return `I couldn't find NGOs specifically in ${mentionedLocation}. Here are some nearby options:\n\n${mockData.ngos.slice(0, 2).map(ngo =>
           `• ${ngo.name} - ${ngo.location}\n  Area: ${ngo.area}\n  📞 ${ngo.contact} | ✉️ ${ngo.email}\n  📍 ${ngo.address}\n  Description: ${ngo.description}\n  👥 Volunteers: ${ngo.volunteers} | Beneficiaries: ${ngo.beneficiaries}\n  Services: ${ngo.services.join(', ')}\n  💰 ${ngo.fundingNeeds}`
         ).join('\n\n')}`;
       }
-      
-      return `${mentionedLocation ? `NGOs in ${mentionedLocation.charAt(0).toUpperCase() + mentionedLocation.slice(1)}:` : 'Recommended NGOs:'}\n\n${filteredNgos.map(ngo => 
+
+      return `${mentionedLocation ? `NGOs in ${mentionedLocation.charAt(0).toUpperCase() + mentionedLocation.slice(1)}:` : 'Recommended NGOs:'}\n\n${filteredNgos.map(ngo =>
         `🏛️ ${ngo.name}\n  Specialization: ${ngo.area}\n  📞 Contact: ${ngo.contact} | ✉️ ${ngo.email}\n  📍 Address: ${ngo.address}\n  📅 Established: ${ngo.established} | Hours: ${ngo.workingHours}\n  Description: ${ngo.description}\n  \n  📊 Impact:\n  - Volunteers: ${ngo.volunteers}\n  - People Helped: ${ngo.beneficiaries}\n  \n  🎯 Services Offered:\n  ${ngo.services.map(s => `  • ${s}`).join('\n')}\n  \n  💰 Funding Needs: ${ngo.fundingNeeds}`
       ).join('\n\n─────────────────────────────\n\n')}\n\n✨ These organizations are actively working and accepting donations!`;
     }
-    
+
     // Hospital and organ donation queries
     if (lowerQuestion.includes('hospital') || lowerQuestion.includes('organ') || lowerQuestion.includes('transplant') || lowerQuestion.includes('donation')) {
-      const filteredHospitals = mentionedLocation 
+      const filteredHospitals = mentionedLocation
         ? mockData.hospitals.filter(h => h.location.toLowerCase() === mentionedLocation)
         : mockData.hospitals.slice(0, 2);
-      
+
       if (filteredHospitals.length === 0) {
-        return `No hospitals found in ${mentionedLocation}. Here are nearby options:\n\n${mockData.hospitals.slice(0, 2).map(h => 
+        return `No hospitals found in ${mentionedLocation}. Here are nearby options:\n\n${mockData.hospitals.slice(0, 2).map(h =>
           `🏥 ${h.name}\n  Location: ${h.location} | Specialty: ${h.specialty}\n  Organs: ${h.organs}\n  📞 ${h.phone}\n  Coordinator: ${h.organDonationCoordinator} (${h.coordinatorContact})`
         ).join('\n\n')}`;
       }
-      
-      return `${mentionedLocation ? `Hospitals in ${mentionedLocation.charAt(0).toUpperCase() + mentionedLocation.slice(1)}:` : 'Recommended Hospitals for Organ Donation:'}\n\n${filteredHospitals.map(h => 
+
+      return `${mentionedLocation ? `Hospitals in ${mentionedLocation.charAt(0).toUpperCase() + mentionedLocation.slice(1)}:` : 'Recommended Hospitals for Organ Donation:'}\n\n${filteredHospitals.map(h =>
         `🏥 ${h.name}\n  Specialty: ${h.specialty} | 🚨 Emergency: ${h.emergency}\n  📞 Main: ${h.phone} | 📍 ${h.address}\n  📅 Established: ${h.established} | Beds: ${h.beds}\n  \n  💝 Organ Donation Information:\n  - Available Organs: ${h.organs}\n  - Coordinator: ${h.organDonationCoordinator}\n  - Contact: ${h.coordinatorContact}\n  - Success Rate: ${h.transplantSuccessRate}\n  - Processing Time: ${h.processingTime}\n  \n  📋 Current Waitlist:\n  ${Object.entries(h.organWaitlist).map(([organ, count]) => `  • ${organ.charAt(0).toUpperCase() + organ.slice(1)}: ${count} patients`).join('\n')}\n  \n  🏆 Facilities:\n  ${h.facilities.map(f => `  • ${f}`).join('\n')}\n  \n  ✅ Accreditation: ${h.accreditation}\n  👨‍⚕️ Doctors: ${h.doctorCount}+`
       ).join('\n\n─────────────────────────────\n\n')}\n\n📞 For urgent organ donation queries, contact the coordinator directly!`;
     }
-    
+
     // Disaster and emergency queries
     if (lowerQuestion.includes('disaster') || lowerQuestion.includes('emergency') || lowerQuestion.includes('victim') || lowerQuestion.includes('relief') || lowerQuestion.includes('flood') || lowerQuestion.includes('cyclone')) {
-      const filteredZones = mentionedLocation 
+      const filteredZones = mentionedLocation
         ? mockData.disasterZones.filter(d => d.location.toLowerCase() === mentionedLocation)
         : mockData.disasterZones.slice(0, 2);
-      
+
       if (filteredZones.length === 0) {
-        return `No active disaster zones in ${mentionedLocation} currently. Here are critical areas:\n\n${mockData.disasterZones.slice(0, 2).map(d => 
+        return `No active disaster zones in ${mentionedLocation} currently. Here are critical areas:\n\n${mockData.disasterZones.slice(0, 2).map(d =>
           `⚠️ ${d.area}\n  Risk: ${d.risk} | Severity: ${d.severity}\n  Victims: ${d.victims} | Relief: ${d.relief}`
         ).join('\n\n')}`;
       }
-      
-      return `${mentionedLocation ? `Disaster Zones in ${mentionedLocation.charAt(0).toUpperCase() + mentionedLocation.slice(1)}:` : 'Critical Disaster-Prone Areas:'}\n\n${filteredZones.map(d => 
+
+      return `${mentionedLocation ? `Disaster Zones in ${mentionedLocation.charAt(0).toUpperCase() + mentionedLocation.slice(1)}:` : 'Critical Disaster-Prone Areas:'}\n\n${filteredZones.map(d =>
         `⚠️ ${d.area} - ${d.risk}\n  Severity: ${d.severity} Risk ⚡\n  Last Incident: ${d.lastIncident}\n  \n  📊 Current Status:\n  - Affected People: ${d.victims}\n  - Relief Status: ${d.relief}\n  - Evacuated: ${d.evacuated}\n  - Active Volunteers: ${d.volunteers}\n  - Medical Teams: ${d.medicalTeams}\n  \n  🏥 Relief Centers:\n  ${d.reliefCenters.map(rc => `  • ${rc}`).join('\n')}\n  \n  🤝 Partner NGOs:\n  ${d.ngoPartners.map(np => `  • ${np}`).join('\n')}\n  \n  📦 Supplies Status:\n  ${d.supplies}\n  \n  🆘 Emergency Contact:\n  - Coordinator: ${d.contactPerson}\n  - Emergency Phone: ${d.emergencyPhone}\n  - Shelter Capacity: ${d.shelterCapacity} people\n  \n  🎯 Immediate Needs: ${d.needs}`
       ).join('\n\n─────────────────────────────\n\n')}\n\n🚨 If you want to help, contact the coordinators or partner NGOs immediately!`;
     }
-    
+
     // School and education queries
     if (lowerQuestion.includes('school') || lowerQuestion.includes('child') || lowerQuestion.includes('education') || lowerQuestion.includes('student')) {
-      const filteredSchools = mentionedLocation 
+      const filteredSchools = mentionedLocation
         ? mockData.schools.filter(s => s.location.toLowerCase() === mentionedLocation)
         : mockData.schools.slice(0, 2);
-      
+
       if (filteredSchools.length === 0) {
-        return `No schools found in ${mentionedLocation}. Here are schools that need support:\n\n${mockData.schools.slice(0, 2).map(s => 
+        return `No schools found in ${mentionedLocation}. Here are schools that need support:\n\n${mockData.schools.slice(0, 2).map(s =>
           `🎓 ${s.name}\n  Location: ${s.location} | Students: ${s.students}\n  Needs: ${s.needs}\n  Contact: ${s.contact}`
         ).join('\n\n')}`;
       }
-      
-      return `${mentionedLocation ? `Schools in ${mentionedLocation.charAt(0).toUpperCase() + mentionedLocation.slice(1)} Needing Support:` : 'Schools Requiring Donations:'}\n\n${filteredSchools.map(s => 
+
+      return `${mentionedLocation ? `Schools in ${mentionedLocation.charAt(0).toUpperCase() + mentionedLocation.slice(1)} Needing Support:` : 'Schools Requiring Donations:'}\n\n${filteredSchools.map(s =>
         `🎓 ${s.name}\n  Type: ${s.type} | Students: ${s.students}\n  📞 Phone: ${s.phone} | ✉️ ${s.contact}\n  📍 Address: ${s.address}\n  📅 Established: ${s.established} | Teachers: ${s.teachers}\n  \n  📚 Subjects Taught:\n  ${s.subjects.join(', ')}\n  \n  🏢 Current Facilities:\n  ${s.facilities.map(f => `  • ${f}`).join('\n')}\n  \n  🎯 Urgent Needs:\n  ${s.needs}\n  \n  📦 Detailed Requirements:\n  • Books Needed: ${s.booksNeeded}\n  • Uniforms Needed: ${s.uniformsNeeded} students\n  • Scholarships Needed: ${s.scholarshipsNeeded} students\n  • Infrastructure: ${s.infrastructure}\n  \n  💰 Monthly Expense: ${s.monthlyExpense}\n  📈 Achievement Rate: ${s.achievementRate}\n  \n  ✨ Special Programs:\n  ${s.specialPrograms.map(sp => `  • ${sp}`).join('\n')}`
       ).join('\n\n─────────────────────────────\n\n')}\n\n💝 Your donation can transform these children's futures!`;
     }
-    
+
     // Location-specific general query
     if (mentionedLocation) {
       const locationData = {
@@ -126,10 +126,10 @@ function AIAssistant({ setCurrentPage }) {
         disasters: mockData.disasterZones.filter(d => d.location.toLowerCase() === mentionedLocation),
         schools: mockData.schools.filter(s => s.location.toLowerCase() === mentionedLocation)
       };
-      
+
       return `📍 CareConnect Resources in ${mentionedLocation.charAt(0).toUpperCase() + mentionedLocation.slice(1)}:\n\n🏛️ NGOs: ${locationData.ngos.length} organizations\n${locationData.ngos.map(n => `  • ${n.name} - ${n.area}`).join('\n')}\n\n🏥 Hospitals: ${locationData.hospitals.length} facilities with organ donation\n${locationData.hospitals.map(h => `  • ${h.name} - ${h.specialty}`).join('\n')}\n\n⚠️ Disaster Zones: ${locationData.disasters.length} areas\n${locationData.disasters.map(d => `  • ${d.area} - ${d.risk} (${d.severity})`).join('\n')}\n\n🎓 Schools: ${locationData.schools.length} schools needing support\n${locationData.schools.map(s => `  • ${s.name} - ${s.students} students`).join('\n')}\n\n💡 Ask me specifically about any category for detailed information!\nExamples:\n- "Tell me about NGOs in ${mentionedLocation}"\n- "Which hospitals in ${mentionedLocation} accept organ donations?"\n- "What are the disaster zones in ${mentionedLocation}?"\n- "Which schools in ${mentionedLocation} need help?"`;
     }
-    
+
     // General help response
     return `👋 Hello! I'm your CareConnect AI Assistant. I can provide detailed information about:\n\n🏛️ **NGOs & Organizations**\n- Find NGOs by location and specialization\n- Get contact details, services, and funding needs\n- Learn about volunteer opportunities\n\n🏥 **Hospitals & Organ Donation**\n- Locate organ donation centers\n- Check current waitlists and success rates\n- Get coordinator contact information\n- Find specialized medical facilities\n\n⚠️ **Disaster Relief & Emergency**\n- Identify disaster-prone areas\n- Check relief status and needs\n- Find emergency contacts and shelters\n- Learn how to help affected communities\n\n🎓 **Schools & Education Support**\n- Discover schools needing donations\n- See specific requirements (books, computers, etc.)\n- Learn about students and programs\n- Connect with education initiatives\n\n📍 **Available Locations:**\nMumbai, Delhi, Bangalore, Chennai, Pune, Hyderabad, Kolkata, Ahmedabad\n\n💬 **Try asking:**\n- "Show me NGOs in Mumbai"\n- "Which hospitals in Delhi accept heart donations?"\n- "What are the disaster zones in Chennai?"\n- "Tell me about schools in Bangalore that need computers"\n- "I want to help with flood relief"\n- "Where can I donate organs in Pune?"\n\nWhat would you like to know?`;
   };
@@ -166,7 +166,7 @@ function AIAssistant({ setCurrentPage }) {
               />
             </div>
             <div className="form-group">
-              <select 
+              <select
                 className="category-select"
                 value={searchCategory}
                 onChange={(e) => setSearchCategory(e.target.value)}
@@ -371,7 +371,7 @@ function AIAssistant({ setCurrentPage }) {
         </div>
 
         {/* Quick Actions */}
-        <div className="quick-actions">
+        <div className="ai-quick-actions">
           <h3>Quick Actions</h3>
           <div className="action-buttons">
             <button className="action-card" onClick={() => { setSearchCategory('ngos'); setShowResults(true); }}>

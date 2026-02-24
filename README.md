@@ -100,12 +100,19 @@ http://localhost:5000/api
 - `POST /api/volunteers/verify-otp` - Verify OTP
 - `GET /api/volunteers/verified/all` - Get all verified donations
 
+### Auth API
+- `POST /api/auth/signup` - Register a new user (Donor/Volunteer/Organization)
+- `POST /api/auth/login` - Authenticate user and get JWT
+- `GET /api/auth/me` - Get logged-in user details
+
 ### Organizations API
 - `GET /api/organizations/profile` - Get organization profile
+- `GET /api/organizations/dashboard-data` - Get comprehensive dashboard stats, volunteers, and inventory logs
 - `GET /api/organizations/needs` - Get organization needs/requests
 - `POST /api/organizations/needs` - Create new need/request
 - `PATCH /api/organizations/needs/:id` - Update need
 - `DELETE /api/organizations/needs/:id` - Delete need
+- `POST /api/organizations/needy-people` - Register a new beneficiary / needy person
 
 ### AI Assistant API
 - `GET /api/ai/ngos?location=<city>&area=<category>` - Get NGOs
@@ -129,10 +136,12 @@ http://localhost:5000/api
 - Complete delivery with OTP verification
 
 ### 3. Organization Dashboard
-- View incoming donations
+- View incoming donations and inventory logs (Received vs Distributed)
+- View dynamically assigned volunteers
 - Manage organization needs/requests
+- Register new Beneficiaries / Needy Persons
 - Track verified donations
-- View organization profile
+- View dynamic organization profile based on auth session
 
 ### 4. AI Assistant
 - Find NGOs by location and category
@@ -154,12 +163,14 @@ NODE_ENV=development
 REACT_APP_API_URL=http://localhost:5000/api
 ```
 
-## Data Persistence
+## Data Persistence & Security
 
-Currently, the backend uses **in-memory storage** for demonstration purposes. In production, integrate with:
-- MongoDB for document storage
-- PostgreSQL for relational data
-- Redis for OTP storage and caching
+The application now uses **MongoDB (Mongoose)** for primary data storage, replacing the previous in-memory models. 
+
+Security features implemented:
+- **JWT Authentication**: securing API routes and managing user sessions.
+- **Role-Based Access Control**: guarding Donor, Volunteer, and Organization dashboards.
+- **Bcrypt Password Hashing**: protecting user credentials in the database.
 
 ## API Response Format
 
@@ -281,26 +292,10 @@ curl -X POST http://localhost:5000/api/ai/query \
 
 ## Future Enhancements
 
-1. **Authentication & Authorization**
-   - User login/registration
-   - Role-based access control
-   - Session management
-
-2. **Real-time Updates**
-   - WebSocket integration
-   - Live donation tracking
-   - Push notifications
-
-3. **Database Integration**
-   - MongoDB for flexible schema
-   - Redis for caching
-   - File storage for images
-
-4. **Advanced Features**
+1. **Advanced Features**
    - Payment gateway integration
    - Email notifications
-   - SMS integration
-   - Advanced analytics dashboard
+   - Complete live SMS integration using Twilio
 
 ## Support
 

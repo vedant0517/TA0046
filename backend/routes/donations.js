@@ -5,7 +5,7 @@ const Donation = require('../models/Donation');
 // Get all donations
 router.get('/', async (req, res) => {
   try {
-    const donations = await Donation.find().sort({ createdDate: -1 });
+    const donations = await Donation.find();
     res.json({ success: true, data: donations });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -15,9 +15,9 @@ router.get('/', async (req, res) => {
 // Get pending donations
 router.get('/pending', async (req, res) => {
   try {
-    const pendingDonations = await Donation.find({ 
-      status: { $in: ['Pending', 'Accepted by Volunteer'] } 
-    }).sort({ createdDate: -1 });
+    const pendingDonations = await Donation.find({
+      status: { $in: ['Pending', 'Accepted by Volunteer'] }
+    });
     res.json({ success: true, data: pendingDonations });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -41,7 +41,7 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     console.log('📝 Received donation request:', JSON.stringify(req.body, null, 2));
-    
+
     const donationData = {
       ...req.body,
       donorId: req.body.donorId || 'D-' + Date.now(),
@@ -67,17 +67,17 @@ router.post('/', async (req, res) => {
         }
       }
     };
-    
+
     console.log('💾 Creating donation in database...');
     const donation = await Donation.create(donationData);
     console.log('✅ Donation created successfully:', donation.donationId);
-    
+
     res.status(201).json({ success: true, data: donation });
   } catch (error) {
     console.error('❌ Error creating donation:', error.message);
     console.error('Stack:', error.stack);
-    res.status(400).json({ 
-      success: false, 
+    res.status(400).json({
+      success: false,
       message: error.message,
       details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
@@ -89,7 +89,7 @@ router.patch('/:id/status', async (req, res) => {
   try {
     const { status, volunteerData } = req.body;
     const donation = await Donation.findById(req.params.id);
-    
+
     if (!donation) {
       return res.status(404).json({ success: false, message: 'Donation not found' });
     }
@@ -136,7 +136,7 @@ router.post('/:id/accept', async (req, res) => {
   try {
     const { volunteerData } = req.body;
     const donation = await Donation.findById(req.params.id);
-    
+
     if (!donation) {
       return res.status(404).json({ success: false, message: 'Donation not found' });
     }
@@ -170,7 +170,7 @@ router.post('/:id/decline', async (req, res) => {
   try {
     const { volunteerData } = req.body;
     const donation = await Donation.findById(req.params.id);
-    
+
     if (!donation) {
       return res.status(404).json({ success: false, message: 'Donation not found' });
     }
@@ -200,7 +200,7 @@ router.post('/:id/decline', async (req, res) => {
 router.patch('/:id/location', async (req, res) => {
   try {
     const donation = await Donation.findById(req.params.id);
-    
+
     if (!donation) {
       return res.status(404).json({ success: false, message: 'Donation not found' });
     }
@@ -233,7 +233,7 @@ router.post('/:id/pickup', async (req, res) => {
   try {
     const { volunteerData, pickupData } = req.body;
     const donation = await Donation.findById(req.params.id);
-    
+
     if (!donation) {
       return res.status(404).json({ success: false, message: 'Donation not found' });
     }
@@ -252,7 +252,7 @@ router.post('/:id/pickup', async (req, res) => {
       donation.tracking.destinationAddress = pickupData.destinationAddress;
       donation.tracking.estimatedDelivery = pickupData.estimatedDelivery;
       donation.tracking.statusProgress.pickedUp = true;
-      
+
       donation.tracking.locationHistory.push({
         location: pickupData.currentLocation,
         timestamp: new Date(),
@@ -274,20 +274,20 @@ router.post('/:id/transit', async (req, res) => {
   try {
     const { locationData } = req.body;
     const donation = await Donation.findById(req.params.id);
-    
+
     if (!donation) {
       return res.status(404).json({ success: false, message: 'Donation not found' });
     }
 
     donation.status = 'In Transit';
-    
+
     if (donation.tracking) {
       donation.tracking.statusProgress.inTransit = true;
       donation.tracking.currentLocation = locationData.address;
       donation.tracking.coordinates = locationData.coordinates;
       donation.tracking.lastUpdate = new Date();
       donation.tracking.distanceCovered = locationData.distanceCovered || donation.tracking.distanceCovered;
-      
+
       donation.tracking.locationHistory.push({
         location: locationData.address,
         timestamp: new Date(),
@@ -309,17 +309,17 @@ router.post('/:id/deliver', async (req, res) => {
   try {
     const { deliveryData = {} } = req.body;
     const donation = await Donation.findById(req.params.id);
-    
+
     if (!donation) {
       return res.status(404).json({ success: false, message: 'Donation not found' });
     }
 
     donation.status = 'Delivered';
-    
+
     if (donation.tracking) {
       donation.tracking.statusProgress.delivered = true;
       donation.tracking.lastUpdate = new Date();
-      
+
       donation.tracking.locationHistory.push({
         location: deliveryData.location || donation.tracking.destinationAddress || 'Destination',
         timestamp: new Date(),

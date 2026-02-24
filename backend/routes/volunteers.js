@@ -29,7 +29,7 @@ const otpStore = new Map();
 
 // Twilio Configuration
 const twilio = require('twilio');
-const client = process.env.ENABLE_SMS === 'true' && process.env.TWILIO_ACCOUNT_SID 
+const client = process.env.ENABLE_SMS === 'true' && process.env.TWILIO_ACCOUNT_SID
   ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
   : null;
 
@@ -44,13 +44,13 @@ const sendSMS = async (phoneNumber, message) => {
     try {
       // Add country code if not present (assuming Indian numbers +91)
       const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
-      
+
       const result = await client.messages.create({
         body: message,
         from: process.env.TWILIO_PHONE_NUMBER,
         to: formattedPhone
       });
-      
+
       console.log(`✅ SMS sent successfully to ${formattedPhone}. SID: ${result.sid}`);
       return true;
     } catch (error) {
@@ -88,14 +88,14 @@ router.get('/:id', async (req, res) => {
 router.post('/send-otp', async (req, res) => {
   try {
     const { phoneNumber, needyPersonId } = req.body;
-    
+
     if (!phoneNumber || phoneNumber.length < 10) {
       return res.status(400).json({ success: false, message: 'Invalid phone number' });
     }
 
     // Generate OTP
     const otp = generateOTP();
-    
+
     // Store OTP with 5-minute expiry
     const key = `${phoneNumber}-${needyPersonId}`;
     otpStore.set(key, {
@@ -106,12 +106,12 @@ router.post('/send-otp', async (req, res) => {
     // Send SMS if enabled
     const smsMessage = `Your Care Connect OTP is: ${otp}. Valid for 5 minutes. Do not share this code with anyone.`;
     const smsSent = await sendSMS(phoneNumber, smsMessage);
-    
+
     // Log OTP to console for development
     console.log(`📱 OTP for ${phoneNumber}: ${otp} (SMS: ${smsSent ? 'Sent' : 'Demo mode'})`);
-    
-    res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       message: smsSent ? 'OTP sent to your mobile number' : 'OTP generated (Demo mode)',
       smsSent: smsSent,
       // Return OTP for demo purposes only (remove in production)
@@ -126,7 +126,7 @@ router.post('/send-otp', async (req, res) => {
 router.post('/verify-otp', async (req, res) => {
   try {
     const { phoneNumber, needyPersonId, otp } = req.body;
-    
+
     const key = `${phoneNumber}-${needyPersonId}`;
     const storedData = otpStore.get(key);
 
@@ -148,7 +148,7 @@ router.post('/verify-otp', async (req, res) => {
 
     // Get needy person details
     const needyPerson = await NeedyPerson.findOne({ needyId: needyPersonId });
-    
+
     // Create verified donation record
     const verifiedDonation = await VerifiedDonation.create({
       needyPersonId: needyPersonId,
@@ -159,8 +159,8 @@ router.post('/verify-otp', async (req, res) => {
       verifiedAt: new Date()
     });
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: 'OTP verified successfully',
       data: verifiedDonation
     });
@@ -172,7 +172,7 @@ router.post('/verify-otp', async (req, res) => {
 // Get all verified donations
 router.get('/verified/all', async (req, res) => {
   try {
-    const verifiedDonations = await VerifiedDonation.find().sort({ createdAt: -1 });
+    const verifiedDonations = await VerifiedDonation.find();
     res.json({ success: true, data: verifiedDonations });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

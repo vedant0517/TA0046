@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import './VolunteerDashboard.css';
-import { getPendingDonations, acceptDonation, declineDonation, addVerifiedDonation, getVerifiedDonations, getNeedyPeople, sendOTP, verifyOTP } from '../utils/donationManager';
+import { getPendingDonations, acceptDonation, declineDonation, addVerifiedDonation, getVerifiedDonations, getNeedyPeople, sendOTP, verifyOTP, pickupDonation, markInTransit, markDelivered, updateDonationLocation } from '../utils/donationManager';
 import LeafletMap from '../components/LeafletMap';
 
-function VolunteerDashboard() {
+function VolunteerDashboard({ user }) {
   const [selectedTask, setSelectedTask] = useState(null);
   const [mapVisible, setMapVisible] = useState(false);
   const [allTasks, setAllTasks] = useState([]);
@@ -43,16 +43,16 @@ function VolunteerDashboard() {
       alert('Please enter a valid phone number (at least 10 digits)');
       return;
     }
-    
+
     try {
       // Call backend API to send OTP - use needyId field from database
       const result = await sendOTP(phoneNumber, selectedNeedy.needyId);
-      
+
       // Store the OTP returned from backend (for demo)
       setGeneratedOtp(result.demoOTP);
       setShowOtpInput(true);
       setOtpSent(true);
-      
+
       // Simple success message - OTP is now displayed on screen
       alert(`📱 OTP sent successfully to ${phoneNumber}!`);
     } catch (error) {
@@ -63,23 +63,23 @@ function VolunteerDashboard() {
 
   const handleOtpVerify = async (e) => {
     e.preventDefault();
-    
+
     try {
       // Call backend API to verify OTP - use needyId field from database
       const result = await verifyOTP(phoneNumber, selectedNeedy.needyId, enteredOtp);
-      
+
       // OTP verified successfully
-      const verifiedData = { 
-        ...selectedNeedy, 
-        phone: phoneNumber, 
+      const verifiedData = {
+        ...selectedNeedy,
+        phone: phoneNumber,
         verified: true,
         verifiedAt: new Date().toLocaleString()
       };
-      
+
       setAssignedNeedy(prev => [...prev, verifiedData]);
-      
+
       alert(`✅ OTP Verified Successfully!\n\n🎉 Donation to ${selectedNeedy.name} has been completed and verified.`);
-      
+
       // Reset all states
       setSelectedNeedy(null);
       setPhoneNumber('');
@@ -112,15 +112,15 @@ function VolunteerDashboard() {
     setGeneratedOtp('');
   };
 
-  // Volunteer Profile Data
+  // Volunteer Profile Data — uses logged-in user
   const volunteerProfile = {
-    name: 'Sarah Johnson',
-    volunteerId: 'VOL-2026-001',
+    name: user?.name || 'Volunteer',
+    volunteerId: user?.userId || user?._id || 'VOL-0000',
     assignedArea: 'Hope City - North District',
     availability: 'Available',
     verificationStatus: 'Verified',
-    joinDate: '2025-12-15',
-    totalDeliveries: 42,
+    joinDate: user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A',
+    totalDeliveries: assignedNeedy.length,
     rating: 4.8
   };
 
@@ -128,10 +128,10 @@ function VolunteerDashboard() {
   useEffect(() => {
     const fetchDonations = async () => {
       const pendingDonations = await getPendingDonations();
-      
+
       // Convert donations to task format
       const tasksFromDonations = pendingDonations.map((donation, index) => ({
-        id: donation.id,
+        id: donation._id || donation.donationId,
         taskId: donation.donationId,
         donorName: donation.donorName,
         donorId: donation.donorId,
@@ -145,7 +145,7 @@ function VolunteerDashboard() {
         items: `${donation.quantity} ${donation.item}`,
         distance: 'TBD',
         estimatedTime: 'TBD',
-        donationId: donation.id,
+        donationId: donation._id || donation.donationId,
         quantity: donation.quantity,
         item: donation.item,
         createdDate: donation.createdDate,
@@ -153,7 +153,7 @@ function VolunteerDashboard() {
       }));
 
       setAllTasks(tasksFromDonations);
-      
+
       // Load verified donations from API
       const verified = await getVerifiedDonations();
       const verifiedFormatted = verified.map(v => ({
@@ -167,7 +167,7 @@ function VolunteerDashboard() {
       }));
       setAssignedNeedy(verifiedFormatted);
     };
-    
+
     fetchDonations();
   }, []);
 
@@ -179,14 +179,14 @@ function VolunteerDashboard() {
         volunteerId: volunteerProfile.volunteerId,
         response: 'accepted'
       });
-      
+
       // Update local state
-      setAllTasks(prevTasks => 
-        prevTasks.map(t => 
+      setAllTasks(prevTasks =>
+        prevTasks.map(t =>
           t.donationId === taskId ? { ...t, status: 'Accepted by Volunteer' } : t
         )
       );
-      
+
       alert(`✓ Donation ${task.taskId} accepted! You can now view the map and details.`);
       setSelectedTask({ ...task, status: 'Accepted by Volunteer' });
     }
@@ -200,12 +200,12 @@ function VolunteerDashboard() {
         volunteerId: volunteerProfile.volunteerId,
         response: 'declined'
       });
-      
+
       // Remove from tasks
-      setAllTasks(prevTasks => 
+      setAllTasks(prevTasks =>
         prevTasks.filter(t => t.donationId !== taskId)
       );
-      
+
       alert(`✗ Donation ${task.taskId} declined.`);
       if (selectedTask?.donationId === taskId) {
         setSelectedTask(null);
@@ -213,16 +213,124 @@ function VolunteerDashboard() {
     }
   };
 
+  const [updatingLocation, setUpdatingLocation] = useState(false);
+
+  const handleUpdateLocation = async (task) => {
+    setUpdatingLocation(true);
+    try {
+      const coords = await new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+          reject(new Error("Geolocation is not supported by your browser"));
+          return;
+        }
+        navigator.geolocation.getCurrentPosition(
+          (position) => resolve({ lat: position.coords.latitude, lng: position.coords.longitude }),
+          (err) => reject(new Error("Failed to get location: " + err.message)),
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+      });
+
+      await updateDonationLocation(task.donationId, {
+        coordinates: coords,
+        note: `Live tracking update from volunteer`
+      });
+      alert('📍 Live location updated successfully!');
+    } catch (error) {
+      console.error('Error updating location:', error);
+      alert('Could not update live location: ' + error.message);
+    } finally {
+      setUpdatingLocation(false);
+    }
+  };
+
   const getStatusSteps = (currentStatus) => {
-    const steps = ['Accepted', 'Picked Up', 'In Transit', 'Delivered', 'Accepted by Volunteer'];
-    return steps.map(step => ({
-      step,
-      completed: steps.indexOf(step) <= steps.indexOf(currentStatus) || currentStatus === step
+    const steps = ['Accepted by Volunteer', 'Picked Up', 'In Transit', 'Delivered'];
+    const currentIdx = steps.indexOf(currentStatus);
+    return steps.map((step, idx) => ({
+      step: step === 'Accepted by Volunteer' ? 'Accepted' : step,
+      completed: idx <= currentIdx
     }));
   };
 
+  const getNextStatus = (currentStatus) => {
+    const flow = ['Pending', 'Accepted by Volunteer', 'Picked Up', 'In Transit', 'Delivered'];
+    const idx = flow.indexOf(currentStatus);
+    if (idx < flow.length - 1) return flow[idx + 1];
+    return null;
+  };
+
+  const handleStatusUpdate = async (task) => {
+    const nextStatus = getNextStatus(task.status);
+    if (!nextStatus) {
+      alert('This donation has already been delivered!');
+      return;
+    }
+
+    try {
+      // Try to get live coordinates
+      let coords = null;
+      try {
+        coords = await new Promise((resolve) => {
+          if (!navigator.geolocation) {
+            resolve(null);
+            return;
+          }
+          navigator.geolocation.getCurrentPosition(
+            (position) => resolve({ lat: position.coords.latitude, lng: position.coords.longitude }),
+            () => resolve(null), // Ignore error, just fallback to null
+            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+          );
+        });
+      } catch (err) {
+        console.error("Could not get coordinates", err);
+      }
+
+      if (nextStatus === 'Picked Up') {
+        await pickupDonation(task.donationId, {
+          name: volunteerProfile.name,
+          volunteerId: volunteerProfile.volunteerId
+        }, {
+          currentLocation: task.pickupLocation,
+          coordinates: coords,
+          destinationAddress: task.deliveryLocation,
+          estimatedDelivery: 'Estimated 1 hour'
+        });
+      } else if (nextStatus === 'In Transit') {
+        await markInTransit(task.donationId, {
+          address: task.pickupLocation,
+          coordinates: coords,
+          distanceCovered: '2 km',
+          note: 'Volunteer is en route to delivery location'
+        });
+      } else if (nextStatus === 'Delivered') {
+        await markDelivered(task.donationId, {
+          location: task.deliveryLocation,
+          coordinates: coords,
+          note: 'Donation successfully delivered'
+        });
+      }
+
+      // Update local state
+      setAllTasks(prevTasks =>
+        prevTasks.map(t =>
+          t.donationId === task.donationId ? { ...t, status: nextStatus } : t
+        )
+      );
+
+      if (selectedTask?.donationId === task.donationId) {
+        setSelectedTask({ ...task, status: nextStatus });
+      }
+
+      const emoji = nextStatus === 'Picked Up' ? '📦' : nextStatus === 'In Transit' ? '🚚' : '✅';
+      alert(`${emoji} Status updated to: ${nextStatus}`);
+    } catch (error) {
+      console.error('Error updating status:', error);
+      alert('Error updating status: ' + error.message);
+    }
+  };
+
   const getPriorityColor = (priority) => {
-    switch(priority) {
+    switch (priority) {
       case 'High': return '#d32f2f';
       case 'Medium': return '#f57c00';
       case 'Low': return '#388e3c';
@@ -245,7 +353,7 @@ function VolunteerDashboard() {
         </div>
       </div>
 
-      {/* Volunteer Profile Section */}}
+      {/* Volunteer Profile Section */}
       <section className="dashboard-section">
         <h2 className="section-heading">Volunteer Profile</h2>
         <div className="profile-card">
@@ -338,14 +446,14 @@ function VolunteerDashboard() {
 
               {task.isFromStorage && task.status === 'Pending' ? (
                 <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
-                  <button 
+                  <button
                     className="accept-btn"
                     onClick={() => handleAcceptDonation(task.donationId)}
                     style={{ flex: 1, padding: '0.8rem', background: '#4CAF50', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '0.95rem' }}
                   >
                     ✓ Accept Delivery
                   </button>
-                  <button 
+                  <button
                     className="decline-btn"
                     onClick={() => handleDeclineDonation(task.donationId)}
                     style={{ flex: 1, padding: '0.8rem', background: '#f44336', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '0.95rem' }}
@@ -354,7 +462,7 @@ function VolunteerDashboard() {
                   </button>
                 </div>
               ) : (
-                <button 
+                <button
                   className="view-map-btn"
                   onClick={() => {
                     setSelectedTask(task);
@@ -397,9 +505,44 @@ function VolunteerDashboard() {
             </div>
 
             <div className="status-actions">
-              <button className="status-action-btn">📋 Update Status</button>
-              <button className="status-action-btn">💬 Contact Donor</button>
-              <button className="status-action-btn">📸 Upload Proof</button>
+              {task.status !== 'Delivered' && task.status !== 'Pending' ? (
+                <>
+                  <button
+                    className="status-action-btn primary-action"
+                    onClick={() => handleStatusUpdate(task)}
+                    style={{
+                      background: getNextStatus(task.status) === 'Picked Up' ? '#2196F3'
+                        : getNextStatus(task.status) === 'In Transit' ? '#FF9800'
+                          : '#4CAF50',
+                      color: 'white', fontWeight: '600', border: 'none', padding: '0.7rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontSize: '0.95rem',
+                      width: '100%', marginBottom: '10px'
+                    }}
+                  >
+                    {getNextStatus(task.status) === 'Picked Up' && '📦 Mark as Picked Up'}
+                    {getNextStatus(task.status) === 'In Transit' && '🚚 Mark as In Transit'}
+                    {getNextStatus(task.status) === 'Delivered' && '✅ Mark as Delivered'}
+                  </button>
+
+                  {(task.status === 'Picked Up' || task.status === 'In Transit') && (
+                    <button
+                      className="status-action-btn secondary-action"
+                      onClick={() => handleUpdateLocation(task)}
+                      disabled={updatingLocation}
+                      style={{
+                        background: '#e0f7fa', color: '#0097a7',
+                        fontWeight: '600', border: '1px solid #b2ebf2', padding: '0.7rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontSize: '0.95rem',
+                        width: '100%'
+                      }}
+                    >
+                      {updatingLocation ? '⏳ Updating...' : '📍 Sync Live Location to Donor'}
+                    </button>
+                  )}
+                </>
+              ) : task.status === 'Delivered' ? (
+                <span style={{ color: '#4CAF50', fontWeight: '600', fontSize: '1rem' }}>✅ Delivery Complete</span>
+              ) : (
+                <span style={{ color: '#999', fontStyle: 'italic' }}>Accept the task first to update status</span>
+              )}
             </div>
           </div>
         ))}
@@ -410,12 +553,12 @@ function VolunteerDashboard() {
       <section className="dashboard-section">
         <h2 className="section-heading">Navigation & Route Assistance</h2>
         <p className="section-description">Get directions and optimize your route</p>
-        
+
         {mapVisible && selectedTask ? (
           <div className="route-card">
             <div className="route-header">
               <h3>{selectedTask.taskId} - Route Details</h3>
-              <button 
+              <button
                 className="close-map-btn"
                 onClick={() => setMapVisible(false)}
               >
@@ -424,9 +567,9 @@ function VolunteerDashboard() {
             </div>
 
             <div className="map-placeholder">
-              <LeafletMap 
-                address={selectedTask.pickupLocation} 
-                label="Pickup Location" 
+              <LeafletMap
+                address={selectedTask.pickupLocation}
+                label="Pickup Location"
               />
               <div className="location-text">
                 <p className="map-text">📍 <strong>Pickup Location:</strong> {selectedTask.pickupLocation}</p>
@@ -492,13 +635,13 @@ function VolunteerDashboard() {
             </thead>
             <tbody>
               {needyPeople.map(person => {
-                const isAssigned = assignedNeedy.some(a => a.id === person.id);
+                const isAssigned = assignedNeedy.some(a => a.id === person.needyId);
                 return (
                   <tr
-                    key={person.id}
-                    className={`needy-row ${selectedNeedy?.id === person.id ? 'selected' : ''} ${isAssigned ? 'assigned' : ''}`}
+                    key={person.needyId || person._id}
+                    className={`needy-row ${selectedNeedy?.needyId === person.needyId ? 'selected' : ''} ${isAssigned ? 'assigned' : ''}`}
                   >
-                    <td>{person.id}</td>
+                    <td>{person.needyId}</td>
                     <td>{person.name}</td>
                     <td>{person.area}</td>
                     <td>
@@ -529,7 +672,7 @@ function VolunteerDashboard() {
           <div className="phone-form-card">
             <h3>Assign Contact for {selectedNeedy.name}</h3>
             <p className="needy-detail">📍 Area: {selectedNeedy.area} &nbsp;|&nbsp; 📦 Category: {selectedNeedy.category}</p>
-            
+
             {!showOtpInput ? (
               <form className="phone-form" onSubmit={handlePhoneSubmit}>
                 <div className="form-group">

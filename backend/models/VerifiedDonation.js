@@ -1,46 +1,26 @@
-// In-memory verified donation storage
-class VerifiedDonation {
-  static verifiedDonations = [];
-  static counter = 1;
+const mongoose = require('mongoose');
 
-  constructor(data) {
-    this._id = Date.now().toString() + Math.random().toString(36).substr(2, 9);
-    this.verificationId = `VER-${String(VerifiedDonation.counter++).padStart(4, '0')}`;
-    this.needyPersonId = data.needyPersonId;
-    this.needyPersonName = data.needyPersonName;
-    this.needyPersonArea = data.needyPersonArea || '';
-    this.needyPersonCategory = data.needyPersonCategory || '';
-    this.phoneNumber = data.phoneNumber || '';
-    this.verifiedAt = data.verifiedAt || new Date();
-    this.verifiedBy = data.verifiedBy || 'Volunteer';
-    this.status = data.status || 'Delivered Successfully';
-    this.donationType = data.donationType || '';
-    this.createdAt = new Date();
-    this.updatedAt = new Date();
-  }
+const verifiedDonationSchema = new mongoose.Schema({
+  verificationId: { type: String, unique: true },
+  needyPersonId: { type: String },
+  needyPersonName: { type: String },
+  needyPersonArea: { type: String, default: '' },
+  needyPersonCategory: { type: String, default: '' },
+  phoneNumber: { type: String, default: '' },
+  verifiedAt: { type: Date, default: Date.now },
+  verifiedBy: { type: String, default: 'Volunteer' },
+  status: { type: String, default: 'Delivered Successfully' },
+  donationType: { type: String, default: '' }
+}, { timestamps: true });
 
-  static async create(data) {
-    const verified = new VerifiedDonation(data);
-    this.verifiedDonations.push(verified);
-    return verified;
+// Auto-generate verificationId before saving
+verifiedDonationSchema.pre('save', async function () {
+  if (!this.verificationId) {
+    const count = await mongoose.model('VerifiedDonation').countDocuments();
+    this.verificationId = `VER-${String(count + 1).padStart(4, '0')}`;
   }
+});
 
-  static async find(query = {}) {
-    return [...this.verifiedDonations].sort((a, b) => b.verifiedAt - a.verifiedAt);
-  }
-
-  static async findById(id) {
-    return this.verifiedDonations.find(v => v._id === id || v.verificationId === id);
-  }
-
-  static async countDocuments(query = {}) {
-    return this.verifiedDonations.length;
-  }
-
-  async save() {
-    this.updatedAt = new Date();
-    return this;
-  }
-}
+const VerifiedDonation = mongoose.model('VerifiedDonation', verifiedDonationSchema);
 
 module.exports = VerifiedDonation;
